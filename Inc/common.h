@@ -56,7 +56,8 @@ const osSemaphoreDef_t i2c2_semaphore = {0};
 extern osSemaphoreId i2c2_semaphore_id;
 const osSemaphoreDef_t i2c3_semaphore = {0};
 extern osSemaphoreId i2c3_semaphore_id;
-
+const osSemaphoreDef_t pid_semaphore = {0};
+extern osSemaphoreId pid_semaphore_id;
 
 // *** Utility functions ***
 // UART print function (like printf)

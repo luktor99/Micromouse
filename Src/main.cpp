@@ -105,7 +105,8 @@ extern "C" {
 
 	void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		if(htim == &htim9) {
-			osSignalSet(motionControlTaskHandle, 1);
+			osSignalSet(motorsControlTaskHandle, 1);
+			taskYIELD();
 		}
 	}
 }

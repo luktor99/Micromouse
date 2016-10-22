@@ -16,7 +16,7 @@ uint8_t buttons_states[5]={0, 0, 0, 0, 0};
 
 osThreadId defaultTaskHandle;
 osThreadId buttonsPollingTaskHandle;
-osThreadId motionControlTaskHandle;
+osThreadId motorsControlTaskHandle;
 osThreadId rangeSensorsTaskHandle;
 osThreadId rangeSensorsWDGTaskHandle;
 osThreadId cliTaskHandle;
@@ -47,8 +47,8 @@ void createThreads(void) {
 	osThreadDef(buttonsPollingTask, StartButtonsPollingTask, osPriorityLow, 0, 128);
 	buttonsPollingTaskHandle = osThreadCreate(osThread(buttonsPollingTask), NULL);
 	// Motors control task
-	osThreadDef(motionControlTask, StartMotionControlTask, osPriorityRealtime, 0, 2560);
-	motionControlTaskHandle = osThreadCreate(osThread(motionControlTask), NULL);
+	osThreadDef(motorsControlTask, StartMotorsControlTask, osPriorityRealtime, 0, 2560);
+	motorsControlTaskHandle = osThreadCreate(osThread(motorsControlTask), NULL);
 	// Range sensors reading task
 	osThreadDef(rangeSensorsTask, StartRangeSensorsTask, osPriorityRealtime, 0, 1280);
 	rangeSensorsTaskHandle = osThreadCreate(osThread(rangeSensorsTask), NULL);
@@ -171,7 +171,7 @@ void StartButtonsPollingTask(void const * argument) {
 	}
 }
 
-void StartMotionControlTask(void const * argument) {
+void StartMotorsControlTask(void const * argument) {
 	// initialize encoders interface
 	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_1);
 	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_2);
@@ -187,7 +187,7 @@ void StartMotionControlTask(void const * argument) {
 	osSemaphoreWait(i2c2_semaphore_id, 10);
 
 	// Wait for Motors.enable() call
-	//osThreadSuspend(motionControlTaskHandle);
+	//osThreadSuspend(motorsControlTaskHandle);
 
 	// Test is sensor is responding
 	if(!mpu6050.testConnection()) {
@@ -227,6 +227,7 @@ void StartMotionControlTask(void const * argument) {
 		Motion.setVelRot(((velRot<w_max)?((velRot>-w_max)?(velRot):-w_max):w_max)*(dist > dist_accuracy));
 		//Motion.setVelLin(((velLin<v_max)?((velLin>-v_max)?(velLin):-v_max):v_max));
 		Motion.setVelLin(v_max*(dist>=dist_accuracy && fabs(errHeading)<=0.05));
+
 
 
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
