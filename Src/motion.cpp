@@ -56,12 +56,12 @@ void MotionCtrl::init(void) {
 
 void MotionCtrl::enable(void) {
 	init();
-	osThreadResume(motorsControlTaskHandle);
+	osThreadResume(motionControlTaskHandle);
 	// TODO: remove thread suspending from here by using an enable flag instead
 }
 
 void MotionCtrl::disable(void) {
-	osThreadSuspend(motorsControlTaskHandle);
+	osThreadSuspend(motionControlTaskHandle);
 	// Stop motors - just in case
 	setL(0);
 	setR(0);

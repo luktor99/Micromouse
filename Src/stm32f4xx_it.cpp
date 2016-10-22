@@ -189,14 +189,12 @@ void EXTI3_IRQHandler(void)
 {
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
   osMessagePut(vl6180x_queue_id, FSL, 0);
-  taskYIELD();
 }
 
 void EXTI4_IRQHandler(void)
 {
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
   osMessagePut(vl6180x_queue_id, FFL, 0);
-  taskYIELD();
 }
 
 void EXTI9_5_IRQHandler(void)
@@ -205,19 +203,16 @@ void EXTI9_5_IRQHandler(void)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR3_Pin);
 	osMessagePut(vl6180x_queue_id, FDL, 0);
-	taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR10_Pin) != RESET)
   {
     __HAL_GPIO_EXTI_CLEAR_IT(SENSOR10_Pin);
     osMessagePut(vl6180x_queue_id, RSR, 0);
-    taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR11_Pin) != RESET)
   {
     __HAL_GPIO_EXTI_CLEAR_IT(SENSOR11_Pin);
     osMessagePut(vl6180x_queue_id, RRR, 0);
-    taskYIELD();
   }
 }
 
@@ -227,31 +222,26 @@ void EXTI15_10_IRQHandler(void)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR4_Pin);
 	osMessagePut(vl6180x_queue_id, FSR, 0);
-	taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR5_Pin) != RESET)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR5_Pin);
 	osMessagePut(vl6180x_queue_id, FFR, 0);
-	taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR6_Pin) != RESET)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR6_Pin);
 	osMessagePut(vl6180x_queue_id, FDR, 0);
-	taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR7_Pin) != RESET)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR7_Pin);
 	osMessagePut(vl6180x_queue_id, RSL, 0);
-	taskYIELD();
   }
   if(__HAL_GPIO_EXTI_GET_IT(SENSOR8_Pin) != RESET)
   {
 	__HAL_GPIO_EXTI_CLEAR_IT(SENSOR8_Pin);
 	osMessagePut(vl6180x_queue_id, RRL, 0);
-	taskYIELD();
   }
 }
 

@@ -23,7 +23,7 @@ extern osThreadId defaultTaskHandle;
 // User buttons state polling
 extern osThreadId buttonsPollingTaskHandle;
 // Motors control task
-extern osThreadId motorsControlTaskHandle;
+extern osThreadId motionControlTaskHandle;
 // Range sensors reading task
 extern osThreadId rangeSensorsTaskHandle;
 // Range sensors watchdog task
@@ -39,7 +39,7 @@ extern osThreadId LiPoMonitorTaskHandle;
 
 void StartDefaultTask(void const * argument);
 void StartButtonsPollingTask(void const * argument);
-void StartMotorsControlTask(void const * argument);
+void StartMotionControlTask(void const * argument);
 void StartRangeSensorsTask(void const * argument);
 void StartRangeSensorsWDGTask(void const * argument);
 void StartCLITask(void const * argument);
