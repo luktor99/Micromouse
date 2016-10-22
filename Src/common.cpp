@@ -44,8 +44,6 @@ osSemaphoreId uart3tx_semaphore_id;
 osSemaphoreId i2c1_semaphore_id;
 osSemaphoreId i2c2_semaphore_id;
 osSemaphoreId i2c3_semaphore_id;
-osSemaphoreId pid_semaphore_id;
-
 
 // *** Utility functions ***
 // UART print function

@@ -175,21 +175,33 @@ void MX_I2C2_Init(void) {
     */
 	GPIO_InitTypeDef GPIO_InitStruct;
     GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     // manually clock out any remaining bits:
-    volatile uint16_t delay;
-    //for(uint8_t i=0; i<1; i++) {
-    	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-    	delay=100000;
-    	while(delay--);
-    	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-		delay=100000;
-		while(delay--);
-    //}
+    volatile uint32_t delay;
+//    for(uint8_t i=0; i<8; i++) {
+//    	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+//    	delay=3000;
+//    	while(delay--);
+//    	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+//		delay=3000;
+//		while(delay--);
+//    }
+    // manually send STOP condition on the I2C bus
+	// SDA low
+	GPIOB->BSRR = GPIO_PIN_11 << 16U;
+	// SCL high
+	GPIOB->BSRR = GPIO_PIN_10;
+	delay=3000;
+	while(delay--);
+	// SDA high
+	GPIOB->BSRR = GPIO_PIN_11 << 16U;
+	delay=3000;
+	while(delay--);
+
 
     // now init I2C normally:
 
