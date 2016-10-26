@@ -12,6 +12,7 @@
 #include "cmsis_os.h"
 #include <string.h>
 #include <vl6180x.h>
+#include <math.h>
 
 // Functions:
 static BaseType_t funEcho(char *buffer, size_t bufferLen, const char *commandStr);
@@ -164,6 +165,7 @@ static BaseType_t funRC(char *buffer, size_t bufferLen, const char *commandStr) 
 	print("Remote control mode enabled.\r\nUse W,A,S,D keys to steer the robot. Press x to exit.\r\n");
 
 	Motion.enable();
+	Motion.resetLocalisation();
 
 	float spd=0.05;
 	uint8_t forward=0;
@@ -243,22 +245,32 @@ static BaseType_t funRC(char *buffer, size_t bufferLen, const char *commandStr) 
 			case 'v':
 				targetX=0.0;
 				targetY=0.0;
+				targetHeading=0.0;
+				targetNew=1;
 				break;
 			case 'b':
 				targetX=0.2;
 				targetY=0.0;
+				targetHeading=M_PI/2.0;
+				targetNew=1;
 				break;
 			case 'n':
 				targetX=0.2;
 				targetY=0.2;
+				targetHeading=-M_PI;
+				targetNew=1;
 				break;
 			case 'm':
 				targetX=0.0;
 				targetY=0.2;
+				targetHeading=3.0*M_PI/2.0;
+				targetNew=1;
 				break;
 			case ' ':
-				targetX=2.0;
-				targetY=0.0;
+				targetX=0.1;
+				targetY=0.1;
+				targetHeading=M_PI;
+				targetNew=1;
 				break;
 			case ',':
 				testvar-=0.01;

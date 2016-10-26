@@ -12,7 +12,8 @@
 #include <math.h>
 
 float heading=0.0;
-float targetX=0.0, targetY=0.0;
+float targetX=0.1, targetY=0.0, targetHeading=0.0;
+uint8_t targetNew=1.0;
 float testvar=0.0;
 uint32_t debug;
 

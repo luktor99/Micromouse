@@ -18,12 +18,12 @@ const float vel_coeff=0.00178499583; // 2pi/encoder_ticks_per_revolution = 2pi/3
 
 // Speed & Acc
 //const float def_vmax=10.0;
-const float def_acc=0.025; // 0.025
+const float def_acc=0.001; // 0.025 m/s^2
 
 // PID settings
-const float def_kP=350.0;//480.0;
-const float def_kI=12.0;//20.0;
-const float def_kD=-2000.0;
+const float def_kP=350.0; //350.0;
+const float def_kI=12.0; //12.0;
+const float def_kD=0.0; //-2000.0;
 const float iValMax=2000.0; // max absolute I term sum value
 
 // Motor speed feedback moving average length
@@ -44,13 +44,15 @@ public:
 	void disable(void);
 	void setVelLin(float v);
 	void setVelRot(float w);
+	void resetLocalisation();
 
 //private: // all variables are public for debugging
 	// Motor control and encoder variables:
-	float velL, velR, velLin, velRot;
+	float velL, velR, velLin, velRot, acc;
 	int8_t dirL, dirR;
 	int32_t encL, encR;
-	int16_t dencL, dencR; // just for debugging purpose
+	int16_t dencL, dencR;
+	uint8_t enabled;
 
 	// PID variables:
 	float errL, errR, errLlast, errRlast, sumL, sumR;
@@ -62,7 +64,7 @@ public:
 	uint32_t avg_counter;
 
 	// Localization variables:
-	float posX, posY, heading;
+	float posX, posY, heading, dHeading;
 
 	// Acc & gyro measurements
 	int16_t ax, ay, az;

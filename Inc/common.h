@@ -17,7 +17,8 @@
 
 extern uint16_t adc_lipo[3];
 extern float heading;
-extern float targetX, targetY;
+extern float targetX, targetY, targetHeading;
+extern uint8_t targetNew;
 extern float testvar;
 extern uint32_t debug;
 

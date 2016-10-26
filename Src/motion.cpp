@@ -25,6 +25,8 @@ void MotionCtrl::init(void) {
 	dirR=0;
 	velLin=0.0;
 	velRot=0.0;
+	acc=def_acc*0.001;
+	enabled=0;
 
 	// Center encoders' values
 	__HAL_TIM_SET_COUNTER(&htim2, 32768);
@@ -45,6 +47,7 @@ void MotionCtrl::init(void) {
 	posX=0.0;
 	posY=0.0;
 	heading=0.0;
+	dHeading=0.0;
 
 	// Init the speed average storage iterator variable
 	avg_counter=0;
@@ -55,16 +58,25 @@ void MotionCtrl::init(void) {
 }
 
 void MotionCtrl::enable(void) {
-	init();
-	osThreadResume(motionControlTaskHandle);
-	// TODO: remove thread suspending from here by using an enable flag instead
+	enabled=1;
 }
 
 void MotionCtrl::disable(void) {
-	osThreadSuspend(motionControlTaskHandle);
-	// Stop motors - just in case
-	setL(0);
-	setR(0);
+	taskENTER_CRITICAL();
+	enabled=0;
+	velL=0.0;
+	velR=0.0;
+	velLin=0.0;
+	velRot=0.0;
+	taskEXIT_CRITICAL();
+}
+
+void MotionCtrl::resetLocalisation() {
+	taskENTER_CRITICAL();
+	posX=0.0;
+	posY=0.0;
+	heading=0.0;
+	taskEXIT_CRITICAL();
 }
 
 void MotionCtrl::setkP(float skP) {
@@ -119,39 +131,45 @@ void MotionCtrl::tick(void) {
 	// Calculate heading increment from gyroscope reading
 	float dGyro = ((float)gz-gz_bias)/16.4/180.0*M_PI*0.001;
 
-	// Update the PID controller
-	taskENTER_CRITICAL(); // Critical section protects velL and velR from getting changed during calculations
-	float velLnow=velL;
-	float velRnow=velR;
-	taskEXIT_CRITICAL();
-	errL = velLnow - avgL;
-	errR = velRnow - avgR;
-	// Calculate feed-forward loop variables
-	float velLff = velLnow*280.0;
-	float velRff = velRnow*280.0;
+	if(enabled) {
+		// Update the PID controller
+		taskENTER_CRITICAL(); // Critical section protects velL and velR from getting changed during calculations
+		float velLnow=velL;
+		float velRnow=velR;
+		taskEXIT_CRITICAL();
+		errL = velLnow - avgL;
+		errR = velRnow - avgR;
+		// Calculate feed-forward loop variables
+		float velLff = velLnow*280.0;
+		float velRff = velRnow*280.0;
 
-	sumL+=errL;
-	sumR+=errR;
+		sumL+=errL;
+		sumR+=errR;
 
-	// I term anti wind-up
-	if(sumL>iValMax)
-		sumL=iValMax;
-	else if(sumL<-iValMax)
-		sumL=-iValMax;
-	if(sumR>iValMax)
-		sumR=iValMax;
-	else if(sumR<-iValMax)
-		sumR=-iValMax;
+		// I term anti wind-up
+		if(sumL>iValMax)
+			sumL=iValMax;
+		else if(sumL<-iValMax)
+			sumL=-iValMax;
+		if(sumR>iValMax)
+			sumR=iValMax;
+		else if(sumR<-iValMax)
+			sumR=-iValMax;
 
-	// Calculate motor outputs as PID regulator output + feed-forward values
-	pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + velLff;
-	pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + velRff; // TODO: provide a better PID disable (motors off) condition when vel=0
-	// Direct regulator outputs to motors
-	setL((int32_t)pwmL*840.0/adc_lipo[0]);
-	setR((int32_t)pwmR*840.0/adc_lipo[0]);
-	// Store current error for D term calculation in next time step
-	errLlast=errL;
-	errRlast=errR;
+		// Calculate motor outputs as PID regulator output + feed-forward values - gyro feedback
+		pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + velLff - dGyro*10000.0;
+		pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + velRff + dGyro*10000.0; // TODO: provide a better PID disable (motors off) condition when vel=0
+		// Direct regulator outputs to motors
+		setL((int32_t)pwmL*840.0/adc_lipo[0]);
+		setR((int32_t)pwmR*840.0/adc_lipo[0]);
+
+		// Store current error for D term calculation in next time step
+		errLlast=errL;
+		errRlast=errR;
+	} else {
+		setL(0);
+		setR(0);
+	}
 
 	// Localization update
 	// linear velocities of the wheels (based on odometry)
@@ -165,17 +183,19 @@ void MotionCtrl::tick(void) {
 	float dY=dvelLin*sin(heading);
 
 	// read current heading to make it's later update thread safe
-	float headingtemp=heading;
+	float headingtemp=heading, dHeadingtemp;
 
 	// gyrodometry:
 	if(fabs(dGyro - dvelRot) > 0.001) {
 		// gyro
 		headingtemp+=dGyro;
+		dHeadingtemp=dGyro;
 		// LED3 ON
 		LED3_GPIO_Port->BSRR = (uint32_t)LED3_Pin;
 	} else {
 		// odometry
 		headingtemp+=dvelRot;
+		dHeadingtemp=dvelRot;
 		// LED3 OFF
 		LED3_GPIO_Port->BSRR = (uint32_t)LED3_Pin << 16U;
 	}
@@ -191,6 +211,7 @@ void MotionCtrl::tick(void) {
 	posX+=dX;
 	posY+=dY;
 	heading=headingtemp;
+	dHeading=dHeadingtemp;
 	taskEXIT_CRITICAL();
 
 	// TODO: add range sensors feedback to correct heading when a wall is visible
@@ -256,7 +277,15 @@ uint16_t MotionCtrl::clamp(uint32_t val) {
 }
 
 void MotionCtrl::setVelLin(float v) {
-	velLin=v*0.001;
+	float velLinSet=v*0.001;
+	// acceleration limitation
+	float velLdiff=velLinSet-velLin;
+	if(velLdiff>=acc)
+		velLin+=acc;
+	else if(velLdiff<=-acc)
+		velLin-=acc;
+	else
+		velLin=velLinSet;
 
 	// update wheels' rotational velocities
 	float velLnew=(velLin-0.5*wheel_dist*velRot)/vel_coeff/wheel_radius;

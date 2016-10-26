@@ -179,15 +179,12 @@ void StartMotionControlTask(void const * argument) {
 	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_2);
 
 	// Initialize motion control
-	//Motion.init();
+	Motion.init();
 
 	// I2C2 semaphore initialization
 	i2c2_semaphore_id = osSemaphoreCreate(&i2c2_semaphore, 1);
 	// Take the semaphore, so next osSemaphoreWait() will actually wait
 	osSemaphoreWait(i2c2_semaphore_id, 10);
-
-	// Wait for Motors.enable() call
-	//osThreadSuspend(motionControlTaskHandle);
 
 	// Test is sensor is responding
 	if(!mpu6050.testConnection()) {
@@ -196,38 +193,46 @@ void StartMotionControlTask(void const * argument) {
 	// Reinitialize MPU6050 sensor
 	mpu6050.reset();
 	osDelay(100);
-
 	mpu6050.initialize();
 	mpu6050.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
 
 	// Start PID timer
 	HAL_TIM_Base_Start_IT(&htim9);
 
+	float a, dx, dy, r, r0, dist, headingToTarget, delta, theta, vel_v, vel_w;
+
 	/* Infinite loop */
 	uint32_t cnt=0;
+	float step=0.0;
 	for(;;) {
 		//uint32_t timer=TIMER; // used to check if this loop takes more than 1ms (failure)
 		osSignalWait(1, osWaitForever); // wait for 1kHz tick signal
 
-
 		// Test motion planner
-		const float v_max=0.1;
+		const float v_max=0.3;
+		const float v_min=0.0;
 		const float w_max=10.0;
-		const float dist_accuracy=0.005; // accuracy of position following (5mm)
+		const float dist_accuracy=0.015; // 15mm // accuracy of position following (in m)
+
+		targetX=0.2*sin(step);
+		targetY=0.2*sin(step)*cos(step);
 
 		float dx=targetX-Motion.posX, dy=targetY-Motion.posY;
 		float dist=sqrt(dx*dx+dy*dy); // distance to target
+
+		if(dist<dist_accuracy) step+=0.01;
 
 		float targetHeading=atan2(dy, dx);
 		float err=targetHeading-Motion.heading;
 		float errHeading=clampAngle(err);
 
-		float velRot=errHeading*10.0-Motion.dvelRot*100.0;
+		float velRot=errHeading*15.0;
 
 		Motion.setVelRot(((velRot<w_max)?((velRot>-w_max)?(velRot):-w_max):w_max)*(dist > dist_accuracy));
-		//Motion.setVelLin(((velLin<v_max)?((velLin>-v_max)?(velLin):-v_max):v_max));
-		Motion.setVelLin(v_max*(dist>=dist_accuracy && fabs(errHeading)<=0.05));
-
+		//Motion.setVelLin(v_max*(dist>=dist_accuracy && fabs(errHeading)<=0.05));
+		float scale=(1.0-5.0*fabs(errHeading)/M_PI);
+		float velLin=v_max*scale;
+		Motion.setVelLin(((velLin>v_min)?velLin:v_min));
 
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
 		//debug=TIMER-timer; // used to check if this loop takes more than 1ms (failure)
