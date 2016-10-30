@@ -18,7 +18,7 @@ const float vel_coeff=0.00178499583; // 2pi/encoder_ticks_per_revolution = 2pi/3
 
 // Speed & Acc
 //const float def_vmax=10.0;
-const float def_acc=0.001; // 0.025 m/s^2
+const float def_acc=0.0012; // in m/s^2, 0.001 is fine
 
 // PID settings
 const float def_kP=350.0; //350.0;
@@ -31,6 +31,32 @@ const uint8_t speed_avg_count = 20;
 
 // Gyro bias average sample count
 const uint16_t gyro_avg_count = 1000; // 1s
+
+// Localisation correction coefficients
+const float coeff_heading = 0.002;
+const float coeff_pos = 0.005;
+
+// distance between sensors (left and right wall sensors)
+const float d_LR = 65.0; // mm
+// distance from sensor to center axis (left and right wall sensors)
+const float r_LR = 35.0; // mm
+// distance between sensors (front and rear wall sensors)
+const float d_FR = 60.0; // mm
+// distance from sensor to center axis (front and rear wall sensors)
+const float r_FR = 38.75; // mm
+
+/* localisation correction calibration data:
+[UP]Ang: -0.031592
+[UP]Dist: 0.087272
+[DOWN]Ang: -0.073596
+[DOWN]Dist: 0.086655
+[LEFT]Ang: 0.164456
+[LEFT]Dist: 0.093283
+[RIGHT]Ang: -0.139795
+[RIGHT]Dist: 0.083677
+ */
+const float ang_calib[4]={-0.031592, -0.073596, 0.164456, -0.139795};
+const float dist_calib[4]={0.087272-0.09, 0.086655-0.09, 0.093283-0.09, 0.083677-0.09}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
 
 // Motion control:
 class MotionCtrl {
@@ -46,7 +72,12 @@ public:
 	void setVelRot(float w);
 	void resetLocalisation();
 
-//private: // all variables are public for debugging
+//private: // everything public for debugging
+	void correctLocalisation(float *, float *, float *);
+	float calcAng(uint8_t, uint8_t, float);
+	float calcDist(uint8_t, uint8_t, float, float);
+	void checkWall(float, float, uint8_t, float, float, float *, float *, float *, float *, uint8_t *, uint8_t *, uint8_t *);
+
 	// Motor control and encoder variables:
 	float velL, velR, velLin, velRot, acc;
 	int8_t dirL, dirR;
@@ -65,6 +96,11 @@ public:
 
 	// Localization variables:
 	float posX, posY, heading, dHeading;
+	int8_t cellX, cellY;
+	float cellXcenter, cellYcenter;
+	uint8_t orientation;
+	enum orientations {UP=0, DOWN, LEFT, RIGHT};
+
 
 	// Acc & gyro measurements
 	int16_t ax, ay, az;
@@ -76,7 +112,7 @@ public:
 
 	void setL(int32_t pwm);
 	void setR(int32_t pwm);
-	uint16_t clamp(uint32_t val);
+	uint16_t clampPWM(uint32_t val);
 };
 
 #endif /* MOTION_H_ */

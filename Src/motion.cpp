@@ -73,9 +73,9 @@ void MotionCtrl::disable(void) {
 
 void MotionCtrl::resetLocalisation() {
 	taskENTER_CRITICAL();
-	posX=0.0;
-	posY=0.0;
-	heading=0.0;
+	posX=0.09;
+	posY=0.09;
+	heading=M_PI/2.0;
 	taskEXIT_CRITICAL();
 }
 
@@ -157,8 +157,8 @@ void MotionCtrl::tick(void) {
 			sumR=-iValMax;
 
 		// Calculate motor outputs as PID regulator output + feed-forward values - gyro feedback
-		pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + velLff - dGyro*10000.0;
-		pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + velRff + dGyro*10000.0; // TODO: provide a better PID disable (motors off) condition when vel=0
+		pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + velLff - dGyro*100000.0;
+		pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + velRff + dGyro*100000.0; // TODO: provide a better PID disable (motors off) condition when vel=0
 		// Direct regulator outputs to motors
 		setL((int32_t)pwmL*840.0/adc_lipo[0]);
 		setR((int32_t)pwmR*840.0/adc_lipo[0]);
@@ -188,19 +188,30 @@ void MotionCtrl::tick(void) {
 	// gyrodometry:
 	if(fabs(dGyro - dvelRot) > 0.001) {
 		// gyro
-		headingtemp+=dGyro;
 		dHeadingtemp=dGyro;
 		// LED3 ON
 		LED3_GPIO_Port->BSRR = (uint32_t)LED3_Pin;
 	} else {
 		// odometry
-		headingtemp+=dvelRot;
 		dHeadingtemp=dvelRot;
 		// LED3 OFF
 		LED3_GPIO_Port->BSRR = (uint32_t)LED3_Pin << 16U;
 	}
 
-	// normalize updating heading to -pi..pi range
+	// update heading
+	headingtemp+=dHeadingtemp;
+
+	// correct localisation data using range sensors (if not turning = angle within +-correction_limit to UP/DOWN/LEFT/RIGHT orientations)
+	const float correction_limit_angle = 0.1; // ~6deg
+	if(fabs(heading-M_PI/2.0) < correction_limit_angle // UP
+		|| fabs(heading+M_PI/2.0) < correction_limit_angle // DOWN
+		|| fabs(clampAngle(heading-M_PI)) < correction_limit_angle // LEFT
+		|| fabs(heading) < correction_limit_angle) { // RIGHT
+
+		correctLocalisation(&headingtemp, &dX, &dY);
+	}
+
+	// normalize updated heading to -pi..pi range
 	if(headingtemp>M_PI)
 		headingtemp-=2.0*M_PI;
 	else if(headingtemp<-M_PI)
@@ -214,8 +225,23 @@ void MotionCtrl::tick(void) {
 	dHeading=dHeadingtemp;
 	taskEXIT_CRITICAL();
 
-	// TODO: add range sensors feedback to correct heading when a wall is visible
-	// TODO: correct posX and posY using range sensors with known walls
+	// Determine orientation (the global direction of the robot: UP=+Y axis, DOWN=-Y axis, LEFT=-X axis, RIGHT=+X axis)
+	if(fabs(heading) <= M_PI/4.0) {
+		orientation=RIGHT;
+	} else if(fabs(heading-M_PI/2.0) <= M_PI/4.0) {
+		orientation=UP;
+	} else if(fabs(heading+M_PI/2.0) <= M_PI/4.0) {
+		orientation=DOWN;
+	} else {
+		orientation=LEFT;
+	}
+
+	// Update robot's discrete position in the maze (cellX: 0..15, cellY: 0..15)
+	cellX=round((posX-0.09)/0.18);
+	cellY=round((posY-0.09)/0.18);
+	// Calculate the center point of the current cell (used by localisation correction in the following time step)
+	cellXcenter=cellX*0.18+0.09;
+	cellYcenter=cellY*0.18+0.09;
 }
 
 void MotionCtrl::setL(int32_t pwm) {
@@ -242,7 +268,7 @@ void MotionCtrl::setL(int32_t pwm) {
 	}
 
 	// Set the new PWM output
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, clamp(pwmabs));
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, clampPWM(pwmabs));
 }
 
 void MotionCtrl::setR(int32_t pwm) {
@@ -269,10 +295,10 @@ void MotionCtrl::setR(int32_t pwm) {
 	}
 
 	// Set pwm
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, clamp(pwmabs));
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, clampPWM(pwmabs));
 }
 
-uint16_t MotionCtrl::clamp(uint32_t val) {
+uint16_t MotionCtrl::clampPWM(uint32_t val) {
 	return (val>9999)?9999:val;
 }
 
@@ -306,6 +332,146 @@ void MotionCtrl::setVelRot(float w) {
 	velL=velLnew;
 	velR=velRnew;
 	taskEXIT_CRITICAL();
+}
+
+void MotionCtrl::correctLocalisation(float *H, float *dX, float *dY) {
+	float estHeadingCOS=0.0, estHeadingSIN=0.0, estX=0.0, estY=0.0; // estimates
+	uint8_t Hi=0, Xi=0, Yi=0; // estimate counters (for averaging)
+
+	// LEFT WALL SENSORS
+	checkWall(ranges[FSL], ranges[RSL], LEFT, d_LR, r_LR, &estHeadingCOS, &estHeadingSIN, &estX, &estY, &Hi, &Xi, &Yi);
+	// RIGHT WALL SENSORS
+	checkWall(ranges[RSR], ranges[FSR], RIGHT, d_LR, r_LR, &estHeadingCOS, &estHeadingSIN, &estX, &estY, &Hi, &Xi, &Yi);
+	// FRONT WALL SENSORS
+	checkWall(ranges[FFR], ranges[FFL], UP, d_FR, r_FR, &estHeadingCOS, &estHeadingSIN, &estX, &estY, &Hi, &Xi, &Yi);
+	// REAR WALL SENSORS
+	checkWall(ranges[RRL], ranges[RRR], DOWN, d_FR, r_FR, &estHeadingCOS, &estHeadingSIN, &estX, &estY, &Hi, &Xi, &Yi);
+
+	// Apply corrections
+	if(Hi) *H=(*H) + coeff_heading*clampAngle(atan2(estHeadingSIN/(float)Hi, estHeadingCOS/(float)Hi)-heading);
+	if(Xi) *dX=(*dX)+coeff_pos*(estX/(float)Xi-posX);
+	if(Yi) *dY=(*dY)+coeff_pos*(estY/(float)Yi-posY);
+}
+
+float MotionCtrl::calcAng(uint8_t r1, uint8_t r2, float d) {
+	return atan((r2-r1)/d);
+}
+
+float MotionCtrl::calcDist(uint8_t r1, uint8_t r2, float r, float ang) {
+	return cos(ang)*((r1+r2)/2.0+r);
+}
+
+void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, float *estHeadingCOS, float *estHeadingSIN, float *estX, float *estY, uint8_t *Hi, uint8_t *Xi, uint8_t *Yi) {
+	// check if sensors actually see something
+	if(r1 != 255 && r2 != 255) {
+		// calculate the angle reported by sensors
+		float ang=calcAng(r1, r2, d)-ang_calib[wall];
+		// calculate the distance from the robot's center point to the wall
+		float dist=calcDist(r1, r2, r, ang)*0.001-dist_calib[wall]; // unit converted from mm to m
+		// don't correct position if we see a wall in another cell
+		uint8_t correctPos=(dist<0.16);
+
+		// only continue if this angle is small
+		if(fabs(ang) < 0.3) {
+			// Estimate of the global (absolute) heading angle of the robot, based on the sensor readings
+			float angGlob;
+
+			// Further actions depend on robot's orientation:
+			if(orientation == UP) {
+				angGlob=ang+M_PI/2.0;
+
+				if(correctPos) {
+					if(wall==UP) { // FRONT WALL SENSORS
+						(*estY)+=cellYcenter+(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==DOWN) { // REAR WALL SENSORS
+						(*estY)+=cellYcenter-(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==LEFT) { // LEFT WALL SENSORS
+						(*estX)+=cellXcenter-(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==RIGHT) { // RIGHT WALL SENSORS
+						(*estX)+=cellXcenter+(0.09-dist);
+						(*Xi)++;
+					}
+				}
+			}
+			else if(orientation == DOWN) {
+				angGlob=ang-M_PI/2.0;
+
+				if(correctPos) {
+					if(wall==UP) { // FRONT WALL SENSORS
+						(*estY)+=cellYcenter-(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==DOWN) { // REAR WALL SENSORS
+						(*estY)+=cellYcenter+(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==LEFT) { // LEFT WALL SENSORS
+						(*estX)+=cellXcenter+(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==RIGHT) { // RIGHT WALL SENSORS
+						(*estX)+=cellXcenter-(0.09-dist);
+						(*Xi)++;
+					}
+				}
+			}
+			else if(orientation == LEFT) {
+				angGlob=ang+M_PI;
+
+				if(correctPos) {
+					if(wall==UP) { // FRONT WALL SENSORS
+						(*estX)+=cellXcenter-(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==DOWN) { // REAR WALL SENSORS
+						(*estX)+=cellXcenter+(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==LEFT) { // LEFT WALL SENSORS
+						(*estY)+=cellYcenter-(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==RIGHT) { // RIGHT WALL SENSORS
+						(*estY)+=cellYcenter+(0.09-dist);
+						(*Yi)++;
+					}
+				}
+			}
+			else if(orientation == RIGHT) {
+				angGlob=ang;
+
+				if(correctPos) {
+					if(wall==UP) { // FRONT WALL SENSORS
+						(*estX)+=cellXcenter+(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==DOWN) { // REAR WALL SENSORS
+						(*estX)+=cellXcenter-(0.09-dist);
+						(*Xi)++;
+					}
+					else if(wall==LEFT) { // LEFT WALL SENSORS
+						(*estY)+=cellYcenter+(0.09-dist);
+						(*Yi)++;
+					}
+					else if(wall==RIGHT) { // RIGHT WALL SENSORS
+						(*estY)+=cellYcenter-(0.09-dist);
+						(*Yi)++;
+					}
+				}
+			}
+
+			// update the heading estimate (averaged later)
+			(*estHeadingCOS)+=cos(angGlob);
+			(*estHeadingSIN)+=sin(angGlob);
+			(*Hi)++;
+		}
+	}
 }
 
 

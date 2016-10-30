@@ -10,7 +10,8 @@
 #include <threads.h>
 #include <vl6180x.h>
 #include <MPU6050.h>
-#include "bitmaps/bitmap_splash.h"
+#include <trajectory.h>
+#include <bitmaps/bitmap_splash.h>
 
 uint8_t buttons_states[5]={0, 0, 0, 0, 0};
 
@@ -35,6 +36,7 @@ void m_sensor_encoders(Menu *m, uint8_t parent);
 void m_sensor_mpu6050(Menu *m, uint8_t parent);
 void m_battery(Menu *m, uint8_t parent);
 void m_localisation(Menu *m, uint8_t parent);
+void m_walls(Menu *m, uint8_t parent);
 
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
@@ -99,6 +101,7 @@ void menu_inflate(void) {
 	menu.add_goto("Sensor data", MENU_SENSORS);
 	menu.add_func("Battery info", m_battery);
 	menu.add_func("Localisation", m_localisation);
+	menu.add_func("Walls detection", m_walls);
 
 	menu.set_menu(MENU_SENSORS);
 	menu.add_goto("« Back", MENU_EXTRAS);
@@ -110,13 +113,33 @@ void menu_inflate(void) {
 void StartDefaultTask(void const * argument) {
 	osDelay(500);
 	// Enter localisation screen
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_OK, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_OK, 0);
+	osMessagePut(buttons_queue_id, B_DOWN, 0);
+	osMessagePut(buttons_queue_id, B_DOWN, 0);
+	osMessagePut(buttons_queue_id, B_OK, 0);
+	osMessagePut(buttons_queue_id, B_DOWN, 0);
+	osMessagePut(buttons_queue_id, B_DOWN, 0);
+	osMessagePut(buttons_queue_id, B_DOWN, 0);
+	osMessagePut(buttons_queue_id, B_OK, 0);
+
+	// Generate an example trajectory
+	for(uint16_t i=0; i<50; i++) {
+		Trajectory.pushPointNormal(90, 180);
+		for(float i=M_PI; i>=M_PI/2.0; i-=0.1) {
+			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(180.0+sin(i)*90.0));
+		}
+		for(float i=-M_PI/2.0; i<=M_PI/2.0; i+=0.1) {
+			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(360.0+sin(i)*90.0));
+		}
+		Trajectory.pushPointNormal(90, 450);
+
+		for(float i=M_PI/2.0; i>=-M_PI/2.0; i-=0.1) {
+			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(360.0+sin(i)*90.0));
+		}
+		for(float i=M_PI/2.0; i<=M_PI; i+=0.1) {
+			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(180.0+sin(i)*90.0));
+		}
+		Trajectory.pushPointNormal(90, 90);
+	}
 
 	/* Infinite loop */
 	for(;;) {
@@ -173,10 +196,8 @@ void StartButtonsPollingTask(void const * argument) {
 
 void StartMotionControlTask(void const * argument) {
 	// initialize encoders interface
-	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_1);
-	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_2);
-	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_1);
-	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_2);
+	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
 
 	// Initialize motion control
 	Motion.init();
@@ -199,43 +220,64 @@ void StartMotionControlTask(void const * argument) {
 	// Start PID timer
 	HAL_TIM_Base_Start_IT(&htim9);
 
-	float a, dx, dy, r, r0, dist, headingToTarget, delta, theta, vel_v, vel_w;
-
 	/* Infinite loop */
-	uint32_t cnt=0;
-	float step=0.0;
+
+	// wait for trajectory to be generated in defaultTask (TODO: to be removed)
+	osDelay(1000);
+	// reset robot's heading and position
+	Motion.resetLocalisation();
+	// Set the first target point
+	targetX=Trajectory.target().x*0.001;
+	targetY=Trajectory.target().y*0.001;
+	Trajectory.popPoint();
+
+	uint8_t must_stop=0;
 	for(;;) {
-		//uint32_t timer=TIMER; // used to check if this loop takes more than 1ms (failure)
 		osSignalWait(1, osWaitForever); // wait for 1kHz tick signal
+		uint32_t timer=TIMER; // used to check if this takes more than 1ms (failure)
 
 		// Test motion planner
-		const float v_max=0.3;
+		const float v_max=0.2;
 		const float v_min=0.0;
 		const float w_max=10.0;
 		const float dist_accuracy=0.015; // 15mm // accuracy of position following (in m)
 
-		targetX=0.2*sin(step);
-		targetY=0.2*sin(step)*cos(step);
 
 		float dx=targetX-Motion.posX, dy=targetY-Motion.posY;
 		float dist=sqrt(dx*dx+dy*dy); // distance to target
 
-		if(dist<dist_accuracy) step+=0.01;
 
+		// Current target captured, set the next one if available
+		if(dist<dist_accuracy && Trajectory.count() > 0){
+			targetX=Trajectory.target().x*0.001;
+			targetY=Trajectory.target().y*0.001;
+			Trajectory.popPoint();
+		}
+
+		// Calculate target heading and the error
 		float targetHeading=atan2(dy, dx);
-		float err=targetHeading-Motion.heading;
-		float errHeading=clampAngle(err);
+		float errHeading=clampAngle(targetHeading-Motion.heading);
 
-		float velRot=errHeading*15.0;
+		// Check if turning in place is required
+		if(Motion.velLin>0.01*0.001 && fabs(errHeading) > M_PI/2.0) {
+			must_stop=1;
+		} else if(Motion.velLin<0.01*0.001 && fabs(errHeading) < M_PI/16.0) { // heading ok, start again
+			must_stop=0;
+		}
 
+		// Calculate and apply rotational velocity
+		float velRot=errHeading*6.0*(!must_stop || (must_stop && Motion.velLin<0.01*0.001)); // if turning in place: first wait for the robot to stop, then rotate
 		Motion.setVelRot(((velRot<w_max)?((velRot>-w_max)?(velRot):-w_max):w_max)*(dist > dist_accuracy));
-		//Motion.setVelLin(v_max*(dist>=dist_accuracy && fabs(errHeading)<=0.05));
-		float scale=(1.0-5.0*fabs(errHeading)/M_PI);
-		float velLin=v_max*scale;
+
+		// Calculate and apply linear velocity
+		float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // smaller velocity if errHeading is significant
+		float velLin=v_max*scale*(!must_stop); // stop if turning in place
 		Motion.setVelLin(((velLin>v_min)?velLin:v_min));
 
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
-		//debug=TIMER-timer; // used to check if this loop takes more than 1ms (failure)
+
+		debug=TIMER-timer; // used to check if this loop takes more than 1ms (failure)
+		if(debug>500) print("MOTION TICK TOO LONG!\r\n"); // something went wrong
 	}
 }
 
@@ -727,6 +769,38 @@ void m_localisation(Menu *m, uint8_t parent) {
 			u8g_DrawStr(&u8g, 0, posY, "posY:");
 			sprintf(buffer, "%ld", (int32_t)(Motion.posY*1000));
 			u8g_DrawStr(&u8g, 54, posY, buffer);
+			posY+=9;
+			u8g_DrawStr(&u8g, 0, posY, "Orient:");
+			if(Motion.orientation==0) sprintf(buffer, "UP");
+			else if(Motion.orientation==1) sprintf(buffer, "DOWN");
+			else if(Motion.orientation==2) sprintf(buffer, "LEFT");
+			else if(Motion.orientation==3) sprintf(buffer, "RIGHT");
+			u8g_DrawStr(&u8g, 54, posY, buffer);
+			posY+=9;
+			u8g_DrawStr(&u8g, 0, posY, "Cell:");
+			sprintf(buffer, "(%u, %u)", Motion.cellX, Motion.cellY);
+			u8g_DrawStr(&u8g, 54, posY, buffer);
+
+		} while(u8g_NextPage(&u8g));
+
+		// check is button has been pressed
+		osEvent event = osMessageGet(buttons_queue_id, 100);
+		if(event.status == osEventMessage) {
+			// Key has been pressed
+			uint8_t key=event.value.v;
+			if(key==B_OK) break; // exit
+		}
+	}
+}
+
+void m_walls(Menu *m, uint8_t parent) {
+	for(;;) {
+		u8g_SetDefaultForegroundColor(&u8g);
+		char buffer[8];
+		u8g_FirstPage(&u8g);
+		do {
+			draw_statusbar();
+
 		} while(u8g_NextPage(&u8g));
 
 		// check is button has been pressed
