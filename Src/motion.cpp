@@ -242,6 +242,11 @@ void MotionCtrl::tick(void) {
 	// Calculate the center point of the current cell (used by localisation correction in the following time step)
 	cellXcenter=cellX*0.18+0.09;
 	cellYcenter=cellY*0.18+0.09;
+
+	// Wall detection state update:
+	wallState[FRONT] = (ranges[FFL] < wall_thresh_front && ranges[FFR] < wall_thresh_front);
+	wallState[LEFT] = (ranges[FSL] < wall_thresh_side);
+	wallState[RIGHT] = (ranges[FSR] < wall_thresh_side);
 }
 
 void MotionCtrl::setL(int32_t pwm) {
@@ -381,11 +386,11 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 				angGlob=ang+M_PI/2.0;
 
 				if(correctPos) {
-					if(wall==UP) { // FRONT WALL SENSORS
+					if(wall==FRONT) { // FRONT WALL SENSORS
 						(*estY)+=cellYcenter+(0.09-dist);
 						(*Yi)++;
 					}
-					else if(wall==DOWN) { // REAR WALL SENSORS
+					else if(wall==REAR) { // REAR WALL SENSORS
 						(*estY)+=cellYcenter-(0.09-dist);
 						(*Yi)++;
 					}
@@ -403,11 +408,11 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 				angGlob=ang-M_PI/2.0;
 
 				if(correctPos) {
-					if(wall==UP) { // FRONT WALL SENSORS
+					if(wall==FRONT) { // FRONT WALL SENSORS
 						(*estY)+=cellYcenter-(0.09-dist);
 						(*Yi)++;
 					}
-					else if(wall==DOWN) { // REAR WALL SENSORS
+					else if(wall==REAR) { // REAR WALL SENSORS
 						(*estY)+=cellYcenter+(0.09-dist);
 						(*Yi)++;
 					}
@@ -425,11 +430,11 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 				angGlob=ang+M_PI;
 
 				if(correctPos) {
-					if(wall==UP) { // FRONT WALL SENSORS
+					if(wall==FRONT) { // FRONT WALL SENSORS
 						(*estX)+=cellXcenter-(0.09-dist);
 						(*Xi)++;
 					}
-					else if(wall==DOWN) { // REAR WALL SENSORS
+					else if(wall==REAR) { // REAR WALL SENSORS
 						(*estX)+=cellXcenter+(0.09-dist);
 						(*Xi)++;
 					}
@@ -447,11 +452,11 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 				angGlob=ang;
 
 				if(correctPos) {
-					if(wall==UP) { // FRONT WALL SENSORS
+					if(wall==FRONT) { // FRONT WALL SENSORS
 						(*estX)+=cellXcenter+(0.09-dist);
 						(*Xi)++;
 					}
-					else if(wall==DOWN) { // REAR WALL SENSORS
+					else if(wall==REAR) { // REAR WALL SENSORS
 						(*estX)+=cellXcenter-(0.09-dist);
 						(*Xi)++;
 					}

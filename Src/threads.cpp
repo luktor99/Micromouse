@@ -36,7 +36,6 @@ void m_sensor_encoders(Menu *m, uint8_t parent);
 void m_sensor_mpu6050(Menu *m, uint8_t parent);
 void m_battery(Menu *m, uint8_t parent);
 void m_localisation(Menu *m, uint8_t parent);
-void m_walls(Menu *m, uint8_t parent);
 
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
@@ -101,7 +100,6 @@ void menu_inflate(void) {
 	menu.add_goto("Sensor data", MENU_SENSORS);
 	menu.add_func("Battery info", m_battery);
 	menu.add_func("Localisation", m_localisation);
-	menu.add_func("Walls detection", m_walls);
 
 	menu.set_menu(MENU_SENSORS);
 	menu.add_goto("« Back", MENU_EXTRAS);
@@ -113,13 +111,13 @@ void menu_inflate(void) {
 void StartDefaultTask(void const * argument) {
 	osDelay(500);
 	// Enter localisation screen
-	osMessagePut(buttons_queue_id, B_DOWN, 0);
-	osMessagePut(buttons_queue_id, B_DOWN, 0);
-	osMessagePut(buttons_queue_id, B_OK, 0);
-	osMessagePut(buttons_queue_id, B_DOWN, 0);
-	osMessagePut(buttons_queue_id, B_DOWN, 0);
-	osMessagePut(buttons_queue_id, B_DOWN, 0);
-	osMessagePut(buttons_queue_id, B_OK, 0);
+//	osMessagePut(buttons_queue_id, B_DOWN, 0);
+//	osMessagePut(buttons_queue_id, B_DOWN, 0);
+//	osMessagePut(buttons_queue_id, B_OK, 0);
+//	osMessagePut(buttons_queue_id, B_DOWN, 0);
+//	osMessagePut(buttons_queue_id, B_DOWN, 0);
+//	osMessagePut(buttons_queue_id, B_DOWN, 0);
+//	osMessagePut(buttons_queue_id, B_OK, 0);
 
 	// Generate an example trajectory
 	for(uint16_t i=0; i<50; i++) {
@@ -780,26 +778,6 @@ void m_localisation(Menu *m, uint8_t parent) {
 			u8g_DrawStr(&u8g, 0, posY, "Cell:");
 			sprintf(buffer, "(%u, %u)", Motion.cellX, Motion.cellY);
 			u8g_DrawStr(&u8g, 54, posY, buffer);
-
-		} while(u8g_NextPage(&u8g));
-
-		// check is button has been pressed
-		osEvent event = osMessageGet(buttons_queue_id, 100);
-		if(event.status == osEventMessage) {
-			// Key has been pressed
-			uint8_t key=event.value.v;
-			if(key==B_OK) break; // exit
-		}
-	}
-}
-
-void m_walls(Menu *m, uint8_t parent) {
-	for(;;) {
-		u8g_SetDefaultForegroundColor(&u8g);
-		char buffer[8];
-		u8g_FirstPage(&u8g);
-		do {
-			draw_statusbar();
 
 		} while(u8g_NextPage(&u8g));
 

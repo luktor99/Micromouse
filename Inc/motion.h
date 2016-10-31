@@ -36,6 +36,10 @@ const uint16_t gyro_avg_count = 1000; // 1s
 const float coeff_heading = 0.002;
 const float coeff_pos = 0.005;
 
+// Wall detection threshold for front and side wall sensors
+const uint8_t wall_thresh_front = 172; // 17.2mm
+const uint8_t wall_thresh_side = 125; // 12.5mm
+
 // distance between sensors (left and right wall sensors)
 const float d_LR = 65.0; // mm
 // distance from sensor to center axis (left and right wall sensors)
@@ -99,8 +103,11 @@ public:
 	int8_t cellX, cellY;
 	float cellXcenter, cellYcenter;
 	uint8_t orientation;
-	enum orientations {UP=0, DOWN, LEFT, RIGHT};
+	enum orientations_global {UP=0, DOWN, LEFT, RIGHT};
+	enum orientations_local {FRONT=0, REAR}; // LEFT and RIGHT are the same as above, so not included
 
+	// Walls detection
+	bool wallState[4];
 
 	// Acc & gyro measurements
 	int16_t ax, ay, az;
