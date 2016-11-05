@@ -36,6 +36,7 @@ void m_sensor_encoders(Menu *m, uint8_t parent);
 void m_sensor_mpu6050(Menu *m, uint8_t parent);
 void m_battery(Menu *m, uint8_t parent);
 void m_localisation(Menu *m, uint8_t parent);
+void m_walls(Menu *m, uint8_t parent);
 
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
@@ -100,6 +101,7 @@ void menu_inflate(void) {
 	menu.add_goto("Sensor data", MENU_SENSORS);
 	menu.add_func("Battery info", m_battery);
 	menu.add_func("Localisation", m_localisation);
+	menu.add_func("Wall detection", m_walls);
 
 	menu.set_menu(MENU_SENSORS);
 	menu.add_goto("« Back", MENU_EXTRAS);
@@ -120,23 +122,16 @@ void StartDefaultTask(void const * argument) {
 //	osMessagePut(buttons_queue_id, B_OK, 0);
 
 	// Generate an example trajectory
-	for(uint16_t i=0; i<50; i++) {
-		Trajectory.pushPointNormal(90, 180);
-		for(float i=M_PI; i>=M_PI/2.0; i-=0.1) {
-			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(180.0+sin(i)*90.0));
-		}
-		for(float i=-M_PI/2.0; i<=M_PI/2.0; i+=0.1) {
-			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(360.0+sin(i)*90.0));
-		}
-		Trajectory.pushPointNormal(90, 450);
-
-		for(float i=M_PI/2.0; i>=-M_PI/2.0; i-=0.1) {
-			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(360.0+sin(i)*90.0));
-		}
-		for(float i=M_PI/2.0; i<=M_PI; i+=0.1) {
-			Trajectory.pushPointNormal((uint16_t)round(180.0+cos(i)*90.0), (uint16_t)round(180.0+sin(i)*90.0));
-		}
-		Trajectory.pushPointNormal(90, 90);
+	Trajectory.addSearchMove(MS_RIGHT);
+	for(uint16_t i=0; i<100; i++) {
+		Trajectory.addSearchMove(MS_RIGHT);
+		Trajectory.addSearchMove(MS_BACK);
+		Trajectory.addSearchMove(MS_LEFT);
+		Trajectory.addSearchMove(MS_BACKLEFT);
+		Trajectory.addSearchMove(MS_FORWARD);
+		Trajectory.addSearchMove(MS_BACKRIGHT);
+		Trajectory.addSearchMove(MS_LEFT);
+		Trajectory.addSearchMove(MS_BACKLEFT);
 	}
 
 	/* Infinite loop */
@@ -225,11 +220,11 @@ void StartMotionControlTask(void const * argument) {
 	// reset robot's heading and position
 	Motion.resetLocalisation();
 	// Set the first target point
-	targetX=Trajectory.target().x*0.001;
-	targetY=Trajectory.target().y*0.001;
-	Trajectory.popPoint();
+	Trajectory.loadCurve();
+	Trajectory.updateTarget(0.0);
 
-	uint8_t must_stop=0;
+	uint8_t must_stop=0, signal_sent=0;
+	float step=0.00001;
 	for(;;) {
 		osSignalWait(1, osWaitForever); // wait for 1kHz tick signal
 		uint32_t timer=TIMER; // used to check if this takes more than 1ms (failure)
@@ -237,24 +232,45 @@ void StartMotionControlTask(void const * argument) {
 		// Test motion planner
 		const float v_max=0.2;
 		const float v_min=0.0;
-		const float w_max=10.0;
+		const float w_max=30.0;
 		const float dist_accuracy=0.015; // 15mm // accuracy of position following (in m)
-
+		const float step_final=1.0;
 
 		float dx=targetX-Motion.posX, dy=targetY-Motion.posY;
 		float dist=sqrt(dx*dx+dy*dy); // distance to target
 
-
-		// Current target captured, set the next one if available
-		if(dist<dist_accuracy && Trajectory.count() > 0){
-			targetX=Trajectory.target().x*0.001;
-			targetY=Trajectory.target().y*0.001;
-			Trajectory.popPoint();
-		}
-
 		// Calculate target heading and the error
 		float targetHeading=atan2(dy, dx);
 		float errHeading=clampAngle(targetHeading-Motion.heading);
+
+		// Current target captured, set the next one if available
+		if(dist < dist_accuracy) {
+			LED1_GPIO_Port->BSRR = LED1_Pin;
+			step+=0.01; // increment the step variable
+
+			// check if we've just finished the current curve
+			if(step>=step_final) {
+				// is there another one waiting in the queue?
+				if(Trajectory.count() > 0) {
+					// load the new curve
+					Trajectory.loadCurve();
+					// move to its first point
+					step=0.0;
+					// reset signal_sent flag
+					signal_sent=0;
+				} else {
+					// Send a signal to start a cell scan
+					//osSignalSet(alogorithmtask, 100);
+					//signal_sent=1;
+					step=step_final; // hold this position
+				}
+			}
+
+			// set the new target position
+			Trajectory.updateTarget(step);
+		} else {
+			LED1_GPIO_Port->BSRR = LED1_Pin << 16U;
+		}
 
 		// Check if turning in place is required
 		if(Motion.velLin>0.01*0.001 && fabs(errHeading) > M_PI/2.0) {
@@ -264,11 +280,11 @@ void StartMotionControlTask(void const * argument) {
 		}
 
 		// Calculate and apply rotational velocity
-		float velRot=errHeading*6.0*(!must_stop || (must_stop && Motion.velLin<0.01*0.001)); // if turning in place: first wait for the robot to stop, then rotate
+		float velRot=errHeading*10.0*(!must_stop || (must_stop && Motion.velLin<0.01*0.001)); // if turning in place: first wait for the robot to stop, then rotate
 		Motion.setVelRot(((velRot<w_max)?((velRot>-w_max)?(velRot):-w_max):w_max)*(dist > dist_accuracy));
 
 		// Calculate and apply linear velocity
-		float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // smaller velocity if errHeading is significant
+		float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // lower velocity if errHeading is significant
 		float velLin=v_max*scale*(!must_stop); // stop if turning in place
 		Motion.setVelLin(((velLin>v_min)?velLin:v_min));
 
@@ -778,6 +794,30 @@ void m_localisation(Menu *m, uint8_t parent) {
 			u8g_DrawStr(&u8g, 0, posY, "Cell:");
 			sprintf(buffer, "(%u, %u)", Motion.cellX, Motion.cellY);
 			u8g_DrawStr(&u8g, 54, posY, buffer);
+
+		} while(u8g_NextPage(&u8g));
+
+		// check is button has been pressed
+		osEvent event = osMessageGet(buttons_queue_id, 100);
+		if(event.status == osEventMessage) {
+			// Key has been pressed
+			uint8_t key=event.value.v;
+			if(key==B_OK) break; // exit
+		}
+	}
+}
+
+void m_walls(Menu *m, uint8_t parent) {
+	for(;;) {
+		u8g_SetDefaultForegroundColor(&u8g);
+		char buffer[8];
+		u8g_FirstPage(&u8g);
+		do {
+			draw_statusbar();
+
+			if(Motion.wallState[FRONT]) u8g_DrawBox(&u8g, 49, 20, 30, 8);
+			if(Motion.wallState[LEFT]) u8g_DrawBox(&u8g, 41, 28, 8, 30);
+			if(Motion.wallState[RIGHT]) u8g_DrawBox(&u8g, 79, 28, 8, 30);
 
 		} while(u8g_NextPage(&u8g));
 

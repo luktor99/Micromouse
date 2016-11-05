@@ -226,13 +226,15 @@ void MotionCtrl::tick(void) {
 	taskEXIT_CRITICAL();
 
 	// Determine orientation (the global direction of the robot: UP=+Y axis, DOWN=-Y axis, LEFT=-X axis, RIGHT=+X axis)
-	if(fabs(heading) <= M_PI/4.0) {
+	float orientation_error;
+	if(fabs(orientation_error=heading) <= M_PI/4.0) {
 		orientation=RIGHT;
-	} else if(fabs(heading-M_PI/2.0) <= M_PI/4.0) {
+	} else if(fabs(orientation_error=clampAngle(heading-M_PI/2.0)) <= M_PI/4.0) {
 		orientation=UP;
-	} else if(fabs(heading+M_PI/2.0) <= M_PI/4.0) {
+	} else if(fabs(orientation_error=clampAngle(heading+M_PI/2.0)) <= M_PI/4.0) {
 		orientation=DOWN;
 	} else {
+		orientation_error=clampAngle(heading+M_PI);
 		orientation=LEFT;
 	}
 
@@ -244,9 +246,22 @@ void MotionCtrl::tick(void) {
 	cellYcenter=cellY*0.18+0.09;
 
 	// Wall detection state update:
-	wallState[FRONT] = (ranges[FFL] < wall_thresh_front && ranges[FFR] < wall_thresh_front);
-	wallState[LEFT] = (ranges[FSL] < wall_thresh_side);
-	wallState[RIGHT] = (ranges[FSR] < wall_thresh_side);
+	float sensor_orient_threshold = 8.0/180.0*M_PI; // 8deg
+	if(orientation_error > sensor_orient_threshold) {
+		wallState[FRONT] = (ranges[FFR] < wall_thresh_front);
+		wallState[LEFT] = (ranges[FDL] < wall_thresh_diag);
+		wallState[RIGHT] = (ranges[FSR] < wall_thresh_side);
+	}
+	else if(orientation_error < -sensor_orient_threshold) {
+		wallState[FRONT] = (ranges[FFL] < wall_thresh_front);
+		wallState[LEFT] = (ranges[FSL] < wall_thresh_side);
+		wallState[RIGHT] = (ranges[FDR] < wall_thresh_diag);
+	}
+	else {
+		wallState[FRONT] = (ranges[FFL] < wall_thresh_front && ranges[FFR] < wall_thresh_front);
+		wallState[LEFT] = (ranges[FSL] < wall_thresh_side);
+		wallState[RIGHT] = (ranges[FSR] < wall_thresh_side);
+	}
 }
 
 void MotionCtrl::setL(int32_t pwm) {

@@ -11,24 +11,68 @@
 #include <stdint.h>
 #include <queue>
 
-enum WAYPOINT_TYPES {WAYPOINT_POSITION, WAYPOINT_SCAN};
+// shape coefficients of the bezier curve trajectories:
+const uint16_t SCAN_IN = 45; // start of a turn (SEARCH RUN)
+const uint16_t SCAN_OUT = 90; // end of a turn (SEARCH RUN)
 
-struct Waypoint {
-	Waypoint(uint16_t x, uint16_t y) : x(x), y(y), type(WAYPOINT_POSITION), speed_scale(255) {}
-	Waypoint(uint16_t x, uint16_t y, uint8_t type, uint8_t speed_scale) : x(x), y(y), type(type), speed_scale(speed_scale) {}
-	uint16_t x, y;
-	uint8_t type = WAYPOINT_POSITION;
-	uint8_t speed_scale = 255;
+// size of a cell
+const uint16_t CELL_HALF = 90;
+const uint16_t CELL_FULL = 180;
+
+enum moves_search {MS_FORWARD, MS_LEFT, MS_RIGHT, MS_BACK, MS_BACKLEFT, MS_BACKRIGHT};
+enum moves_common {M_START_UP, M_START_DOWN, M_START_LEFT, M_START_RIGHT, M_FINISH_UP, M_FINISH_DOWN, M_FINISH_LEFT, M_FINISH_RIGHT}; // START gets from the border to the center of a cell, FINISH does the opposite
+
+enum CURVE_TYPES {
+	CURVE_SEARCHRUN=0, // full speed for any path (useful only for search run trajectories)
+	CURVE_CONSTANT, // constant speed (e.g. for turns)
+	CURVE_LINEAR, // speed scale is increased in a linear fashion (evenly from speed1 to speed2)
+	CURVE_BRAKE, // speed is kept at speed1 level for as long as possible and then is decreased to speed2 (to be used before turning points)
+	CURVE_SCAN=0x80 // (FLAG) call the floodfill algorithm at the end of the curve
+};
+
+struct BezierCurve {
+	// Search run only constructor
+	BezierCurve(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y) : P1X(P1X), P1Y(P1Y), D1X(D1X), D1Y(D1Y), P2X(P2X), P2Y(P2Y), D2X(D2X), D2Y(D2Y), type(CURVE_SEARCHRUN), speed1(255), speed2(255) {}
+	// Constant speed only constructor
+	BezierCurve(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y, uint8_t speed) : P1X(P1X), P1Y(P1Y), D1X(D1X), D1Y(D1Y), P2X(P2X), P2Y(P2Y), D2X(D2X), D2Y(D2Y), type(CURVE_CONSTANT), speed1(speed), speed2(speed) {}
+	// Normal constructor
+	BezierCurve(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y, uint8_t type, uint8_t speed1, uint8_t speed2) : P1X(P1X), P1Y(P1Y), D1X(D1X), D1Y(D1Y), P2X(P2X), P2Y(P2Y), D2X(D2X), D2Y(D2Y), type(type), speed1(speed1), speed2(speed2) {}
+	uint16_t P1X, P1Y; // first point;
+	uint16_t D1X, D1Y; // direction point for the first point;
+	uint16_t P2X, P2Y; // last point;
+	uint16_t D2X, D2Y; // direction point for the last point;
+	uint8_t type; // for one of the CURVE_TYPES
+	uint8_t speed1; // speed scale at the first point
+	uint8_t speed2; // speed scale at the last point
 };
 
 class TrajectoryCtrl {
 public:
-	void pushPointNormal(uint16_t, uint16_t);
-	void popPoint();
-	Waypoint target();
+	TrajectoryCtrl(void);
+	void pushCurveSearchRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y);
+	void loadCurve();
+	void updateTarget(float);
+	float stepDelta(float t);
+	uint16_t cellToPos(uint16_t cell);
 	uint16_t count();
-private:
-	std::queue<Waypoint> container;
+
+	void addSearchMove(uint8_t move);
+//private:
+	float invFuncS(float t);
+
+	std::queue<BezierCurve> container;
+
+	// curve factors
+	float vaX, vaY;
+	float vbX, vbY;
+	float vcX, vcY;
+	float vp0X, vp0Y;
+
+	// temporary vars that allow building longer trajectories out of the available segments
+	uint16_t lastCellX, lastCellY; // end cell of the last trajectory
+	uint8_t lastOrientation; // orientation of the robot after arriving to the end cell
+
+	float finish_x, finish_y;
 };
 
 extern TrajectoryCtrl Trajectory;

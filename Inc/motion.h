@@ -37,8 +37,9 @@ const float coeff_heading = 0.002;
 const float coeff_pos = 0.005;
 
 // Wall detection threshold for front and side wall sensors
-const uint8_t wall_thresh_front = 172; // 17.2mm
+const uint8_t wall_thresh_front = 187; // 18.7mm
 const uint8_t wall_thresh_side = 125; // 12.5mm
+const uint8_t wall_thresh_diag = 125; // 12.5mm
 
 // distance between sensors (left and right wall sensors)
 const float d_LR = 65.0; // mm
@@ -61,6 +62,12 @@ const float r_FR = 38.75; // mm
  */
 const float ang_calib[4]={-0.031592, -0.073596, 0.164456, -0.139795};
 const float dist_calib[4]={0.087272-0.09, 0.086655-0.09, 0.093283-0.09, 0.083677-0.09}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
+
+
+// possible global orientations of the robot
+enum orientations_global {UP=0, DOWN, LEFT, RIGHT};
+// and the local ones for sensor data
+enum orientations_local {FRONT=0, REAR}; // LEFT and RIGHT are the same as above, so not included
 
 // Motion control:
 class MotionCtrl {
@@ -103,8 +110,6 @@ public:
 	int8_t cellX, cellY;
 	float cellXcenter, cellYcenter;
 	uint8_t orientation;
-	enum orientations_global {UP=0, DOWN, LEFT, RIGHT};
-	enum orientations_local {FRONT=0, REAR}; // LEFT and RIGHT are the same as above, so not included
 
 	// Walls detection
 	bool wallState[4];
