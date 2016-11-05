@@ -22,15 +22,18 @@ const uint16_t SCAN_IN = 45; // start of a turn (SEARCH RUN)
 const uint16_t SCAN_OUT = 90; // end of a turn (SEARCH RUN)
 
 // size of a cell
+const uint16_t CELL_QUARTER = 45;
 const uint16_t CELL_HALF = 90;
 const uint16_t CELL_FULL = 180;
 
-enum moves_search {MS_FORWARD, MS_LEFT, MS_RIGHT, MS_BACK, MS_BACKLEFT, MS_BACKRIGHT};
-enum moves_common {M_START_UP, M_START_DOWN, M_START_LEFT, M_START_RIGHT, M_FINISH_UP, M_FINISH_DOWN, M_FINISH_LEFT, M_FINISH_RIGHT}; // START gets from the border to the center of a cell, FINISH does the opposite
+enum moves {
+	MS_FORWARD, MS_LEFT, MS_RIGHT, MS_BACK, MS_BACKLEFT, MS_BACKRIGHT, // search run moves
+	M_START, M_FINISH // START gets from the border to the center of a cell, FINISH does the opposite
+};
 
 enum CURVE_TYPES {
 	CURVE_SEARCHRUN=0, // full speed for any path (useful only for search run trajectories)
-	CURVE_CONSTANT, // constant speed (e.g. for turns)
+	CURVE_CONSTANT, // constant speed (e.g. for fast run turns)
 	CURVE_LINEAR, // speed scale is increased in a linear fashion (evenly from speed1 to speed2)
 	CURVE_BRAKE, // speed is kept at speed1 level for as long as possible and then is decreased to speed2 (to be used before turning points)
 	CURVE_SCAN=0x80 // (FLAG) call the floodfill algorithm at the end of the curve

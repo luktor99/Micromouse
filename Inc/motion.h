@@ -74,6 +74,7 @@ class MotionCtrl {
 public:
 	void init(void);
 	void tick(void);
+	void calib(void);
 	void setkP(float kP);
 	void setkI(float kI);
 	void setkD(float kD);
@@ -81,7 +82,7 @@ public:
 	void disable(void);
 	void setVelLin(float v);
 	void setVelRot(float w);
-	void resetLocalisation();
+	void resetLocalisation(void);
 
 //private: // everything public for debugging
 	void correctLocalisation(float *, float *, float *);

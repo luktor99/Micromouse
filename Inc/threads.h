@@ -36,6 +36,8 @@ extern osThreadId activityLEDsTaskHandle;
 extern osThreadId OLEDTaskHandle;
 // LiPo voltage monitor task
 extern osThreadId LiPoMonitorTaskHandle;
+// Maze algorithm task
+extern osThreadId MazeAlgorithmTaskHandle;
 
 void StartDefaultTask(void const * argument);
 void StartButtonsPollingTask(void const * argument);
@@ -46,6 +48,7 @@ void StartCLITask(void const * argument);
 void StartActivityLEDsTask(void const * argument);
 void StartOLEDTask(void const * argument);
 void StartLiPoMonitorTask(void const * argument);
+void StartMazeAlgorithmTask(void const * argument);
 
 // Create all the threads
 void createThreads(void);

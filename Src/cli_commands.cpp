@@ -167,9 +167,6 @@ static BaseType_t funRC(char *buffer, size_t bufferLen, const char *commandStr) 
 	Motion.enable();
 	Motion.resetLocalisation();
 
-	float spd=0.05;
-	uint8_t forward=0;
-
 	// Loop
 	uint8_t character='\0';
 	do {
@@ -223,11 +220,7 @@ static BaseType_t funTasks(char *buffer, size_t bufferLen, const char *commandSt
 }
 
 static BaseType_t funCalib(char *buffer, size_t bufferLen, const char *commandStr) {
-	float sum=0.0;
-	for(uint16_t i=0; i<gyro_avg_count; i++) {
-		sum+=Motion.gz_samples[i];
-	}
-	Motion.gz_bias=sum/(float)gyro_avg_count;
+	Motion.calib();
 
 	print("Gyro calibration completed. GyroZ bias: %f", Motion.gz_bias);
 	snprintf(buffer, bufferLen, "\r\n");

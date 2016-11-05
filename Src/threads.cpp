@@ -11,6 +11,7 @@
 #include <vl6180x.h>
 #include <MPU6050.h>
 #include <trajectory.h>
+#include <maze.h>
 #include <bitmaps/bitmap_splash.h>
 
 uint8_t buttons_states[5]={0, 0, 0, 0, 0};
@@ -24,6 +25,7 @@ osThreadId cliTaskHandle;
 osThreadId activityLEDsTaskHandle;
 osThreadId OLEDTaskHandle;
 osThreadId LiPoMonitorTaskHandle;
+osThreadId MazeAlgorithmTaskHandle;
 
 Menu menu(MENU_ITEMS);
 void m_reboot(Menu *m, uint8_t parent);
@@ -37,6 +39,7 @@ void m_sensor_mpu6050(Menu *m, uint8_t parent);
 void m_battery(Menu *m, uint8_t parent);
 void m_localisation(Menu *m, uint8_t parent);
 void m_walls(Menu *m, uint8_t parent);
+void m_run(Menu *m, uint8_t parent);
 
 void MX_I2C1_Init(void);
 void MX_I2C2_Init(void);
@@ -66,12 +69,15 @@ void createThreads(void) {
 	// LiPo voltage monitor task
 	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0, 128);
 	LiPoMonitorTaskHandle = osThreadCreate(osThread(LiPoMonitorTask), NULL);
+	// Maze algorithm task
+	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 2560);
+	MazeAlgorithmTaskHandle = osThreadCreate(osThread(MazeAlgorithmTask), NULL);
 }
 
 void menu_inflate(void) {
 	enum menus {MENU_MAIN, MENU_SETTINGS, MENU_EXTRAS, MENU_AUTHORS, MENU_SENSORS};
 	menu.set_menu(MENU_MAIN);
-	menu.add_text("Run");
+	menu.add_func("Run", m_run);
 	menu.add_goto("Settings", MENU_SETTINGS);
 	menu.add_goto("Extras", MENU_EXTRAS);
 	menu.add_goto("Authors", MENU_AUTHORS);
@@ -80,14 +86,6 @@ void menu_inflate(void) {
 	menu.set_menu(MENU_SETTINGS);
 	menu.add_goto("« Back", MENU_MAIN);
 	menu.add_text("Option 1");
-	menu.add_text("Option 2");
-	menu.add_text("Option 3");
-	menu.add_text("Option 4");
-	menu.add_text("Option 5");
-	menu.add_text("Option 6");
-	menu.add_text("Option 7");
-	menu.add_text("Option 8");
-	menu.add_text("Option 9");
 
 	menu.set_menu(MENU_AUTHORS);
 	menu.add_goto("« Back", MENU_MAIN);
@@ -111,28 +109,18 @@ void menu_inflate(void) {
 }
 
 void StartDefaultTask(void const * argument) {
-	osDelay(500);
-	// Enter localisation screen
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_OK, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_DOWN, 0);
-//	osMessagePut(buttons_queue_id, B_OK, 0);
-
 	// Generate an example trajectory
-	Trajectory.addSearchMove(MS_RIGHT);
-	for(uint16_t i=0; i<100; i++) {
-		Trajectory.addSearchMove(MS_RIGHT);
-		Trajectory.addSearchMove(MS_BACK);
-		Trajectory.addSearchMove(MS_LEFT);
-		Trajectory.addSearchMove(MS_BACKLEFT);
-		Trajectory.addSearchMove(MS_FORWARD);
-		Trajectory.addSearchMove(MS_BACKRIGHT);
-		Trajectory.addSearchMove(MS_LEFT);
-		Trajectory.addSearchMove(MS_BACKLEFT);
-	}
+//	Trajectory.addSearchMove(MS_RIGHT);
+//	for(uint16_t i=0; i<100; i++) {
+//		Trajectory.addSearchMove(MS_RIGHT);
+//		Trajectory.addSearchMove(MS_BACK);
+//		Trajectory.addSearchMove(MS_LEFT);
+//		Trajectory.addSearchMove(MS_BACKLEFT);
+//		Trajectory.addSearchMove(MS_FORWARD);
+//		Trajectory.addSearchMove(MS_BACKRIGHT);
+//		Trajectory.addSearchMove(MS_LEFT);
+//		Trajectory.addSearchMove(MS_BACKLEFT);
+//	}
 
 	/* Infinite loop */
 	for(;;) {
@@ -198,7 +186,7 @@ void StartMotionControlTask(void const * argument) {
 	// I2C2 semaphore initialization
 	i2c2_semaphore_id = osSemaphoreCreate(&i2c2_semaphore, 1);
 	// Take the semaphore, so next osSemaphoreWait() will actually wait
-	osSemaphoreWait(i2c2_semaphore_id, 10);
+	osSemaphoreWait(i2c2_semaphore_id, osWaitForever);
 
 	// Test is sensor is responding
 	if(!mpu6050.testConnection()) {
@@ -213,8 +201,6 @@ void StartMotionControlTask(void const * argument) {
 	// Start PID timer
 	HAL_TIM_Base_Start_IT(&htim9);
 
-	/* Infinite loop */
-
 	// wait for trajectory to be generated in defaultTask (TODO: to be removed)
 	osDelay(1000);
 	// reset robot's heading and position
@@ -223,7 +209,7 @@ void StartMotionControlTask(void const * argument) {
 	Trajectory.loadCurve();
 	Trajectory.updateTarget(0.0);
 
-
+	/* Infinite loop */
 	for(;;) {
 		osSignalWait(1, osWaitForever); // wait for 1kHz tick signal
 		uint32_t timer=TIMER; // used to check if this takes more than 1ms (failure)
@@ -491,6 +477,22 @@ void StartLiPoMonitorTask(void const * argument) {
 	}
 }
 
+void StartMazeAlgorithmTask(void const * argument) {
+	// Go to the first border, to initiate the first scan
+	Trajectory.addSearchMove(M_START);
+
+	for(;;) {
+		osSignalWait(SIGNAL_SCAN, osWaitForever);
+		BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+		print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
+		maze.nextscanstep();
+		osDelay(50);
+		BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+	}
+}
+
+
+// OLED screen "apps" below
 void m_reboot(Menu *m, uint8_t parent) {
 	m->current_item->text="Rebooting...";
 	m->draw(); // redraw menu
@@ -773,6 +775,34 @@ void m_walls(Menu *m, uint8_t parent) {
 			if(key==B_OK) break; // exit
 		}
 	}
+}
+
+
+void m_run(Menu *m, uint8_t parent) {
+	osDelay(1500);
+	Motion.calib();
+	Motion.resetLocalisation();
+	Motion.enable();
+
+	for(;;) {
+		u8g_SetDefaultForegroundColor(&u8g);
+		u8g_FirstPage(&u8g);
+		do {
+			draw_statusbar();
+
+			u8g_DrawStr(&u8g, 0, 12, "SCANNING");
+
+		} while(u8g_NextPage(&u8g));
+
+		// check is button has been pressed
+		osEvent event = osMessageGet(buttons_queue_id, 100);
+		if(event.status == osEventMessage) {
+			// Key has been pressed
+			uint8_t key=event.value.v;
+			break; // exit
+		}
+	}
+	Motion.disable();
 }
 
 extern "C" {

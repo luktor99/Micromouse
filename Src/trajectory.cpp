@@ -129,8 +129,8 @@ void TrajectoryCtrl::tick() {
 				signal_sent=0;
 			} else {
 				// Send a signal to start a cell scan
-				//osSignalSet(alogorithmtask, 100);
-				//signal_sent=1;
+				if(!signal_sent) osSignalSet(MazeAlgorithmTaskHandle, SIGNAL_SCAN);
+				signal_sent=1;
 				step=1.0; // hold this position
 			}
 		}
@@ -157,6 +157,14 @@ void TrajectoryCtrl::tick() {
 }
 
 void TrajectoryCtrl::addSearchMove(uint8_t move) {
+	// debug printing:
+	if(move==MS_FORWARD) print("F ");
+	else if(move==MS_LEFT) print("L ");
+	else if(move==MS_RIGHT) print("R ");
+	else if(move==MS_BACK) print("B ");
+	else if(move==MS_BACKLEFT) print("BL ");
+	else if(move==MS_BACKRIGHT) print("BR ");
+
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 
 	if(lastOrientation == UP) {
@@ -228,6 +236,17 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 			D2X = P2X + SCAN_OUT;
 			D2Y = P2Y;
 			lastOrientation = LEFT;
+		}
+		else if(move==M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X;
+			D1Y = P1Y + CELL_QUARTER;
+			P2X = P1X;
+			P2Y = P1Y + CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
 		}
 
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
@@ -302,6 +321,17 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 			D2Y = P2Y - SCAN_OUT;
 			lastOrientation = UP;
 		}
+		else if(move==M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_QUARTER;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+		}
 
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
 	}
@@ -375,6 +405,17 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 			D2Y = P2Y + SCAN_OUT;
 			lastOrientation = DOWN;
 		}
+		else if(move==M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_QUARTER;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = LEFT;
+		}
 
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
 	}
@@ -447,6 +488,17 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 			D2X = P2X - SCAN_OUT;
 			D2Y = P2Y;
 			lastOrientation = RIGHT;
+		}
+		else if(move==M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X;
+			D1Y = P1Y - CELL_QUARTER;
+			P2X = P1X;
+			P2Y = P1Y - CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = DOWN;
 		}
 
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);

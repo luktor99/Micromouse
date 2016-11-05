@@ -24,6 +24,8 @@ extern uint16_t adc_lipo[3];
 #define UART3_TX_bufferlenCLI 	500 // size of CLI's output buffer
 #define UART3_RX_bufferlenCLI 	500 // size of CLI's input buffer
 
+// Maze scan signal
+#define SIGNAL_SCAN 100
 
 // Global variables
 extern MotionCtrl Motion;

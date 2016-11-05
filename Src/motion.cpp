@@ -494,4 +494,12 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 	}
 }
 
+void MotionCtrl::calib(void) {
+	float sum=0.0;
+	for(uint16_t i=0; i<gyro_avg_count; i++) {
+		sum+=gz_samples[i];
+	}
+	gz_bias=sum/(float)gyro_avg_count;
+}
+
 
