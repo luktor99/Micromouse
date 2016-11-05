@@ -11,6 +11,12 @@
 #include <stdint.h>
 #include <queue>
 
+// Trajectory follow constants
+const float velLinMax=0.2; // Max linear velocity TODO: change to a variable (for speed profiling purposes)
+const float velLinMin=0.0; // Min linear velocity (to prevent the robot from going backwards in certain conditions)
+const float velRotMax=30.0; // Max rotational velocity
+const float dist_accuracy=0.015; // accuracy of position following (15mm)
+
 // shape coefficients of the bezier curve trajectories:
 const uint16_t SCAN_IN = 45; // start of a turn (SEARCH RUN)
 const uint16_t SCAN_OUT = 90; // end of a turn (SEARCH RUN)
@@ -48,7 +54,8 @@ struct BezierCurve {
 
 class TrajectoryCtrl {
 public:
-	TrajectoryCtrl(void);
+	TrajectoryCtrl();
+	void tick();
 	void pushCurveSearchRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y);
 	void loadCurve();
 	void updateTarget(float);
@@ -62,11 +69,19 @@ public:
 
 	std::queue<BezierCurve> container;
 
+	// target position
+	float targetX, targetY;
+
 	// curve factors
 	float vaX, vaY;
 	float vbX, vbY;
 	float vcX, vcY;
 	float vp0X, vp0Y;
+
+	// position on the curve
+	float step;
+	// flags
+	uint8_t must_stop, signal_sent;
 
 	// temporary vars that allow building longer trajectories out of the available segments
 	uint16_t lastCellX, lastCellY; // end cell of the last trajectory

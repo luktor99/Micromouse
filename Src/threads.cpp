@@ -223,75 +223,16 @@ void StartMotionControlTask(void const * argument) {
 	Trajectory.loadCurve();
 	Trajectory.updateTarget(0.0);
 
-	uint8_t must_stop=0, signal_sent=0;
-	float step=0.00001;
+
 	for(;;) {
 		osSignalWait(1, osWaitForever); // wait for 1kHz tick signal
 		uint32_t timer=TIMER; // used to check if this takes more than 1ms (failure)
 
-		// Test motion planner
-		const float v_max=0.2;
-		const float v_min=0.0;
-		const float w_max=30.0;
-		const float dist_accuracy=0.015; // 15mm // accuracy of position following (in m)
-		const float step_final=1.0;
-
-		float dx=targetX-Motion.posX, dy=targetY-Motion.posY;
-		float dist=sqrt(dx*dx+dy*dy); // distance to target
-
-		// Calculate target heading and the error
-		float targetHeading=atan2(dy, dx);
-		float errHeading=clampAngle(targetHeading-Motion.heading);
-
-		// Current target captured, set the next one if available
-		if(dist < dist_accuracy) {
-			LED1_GPIO_Port->BSRR = LED1_Pin;
-			step+=0.01; // increment the step variable
-
-			// check if we've just finished the current curve
-			if(step>=step_final) {
-				// is there another one waiting in the queue?
-				if(Trajectory.count() > 0) {
-					// load the new curve
-					Trajectory.loadCurve();
-					// move to its first point
-					step=0.0;
-					// reset signal_sent flag
-					signal_sent=0;
-				} else {
-					// Send a signal to start a cell scan
-					//osSignalSet(alogorithmtask, 100);
-					//signal_sent=1;
-					step=step_final; // hold this position
-				}
-			}
-
-			// set the new target position
-			Trajectory.updateTarget(step);
-		} else {
-			LED1_GPIO_Port->BSRR = LED1_Pin << 16U;
-		}
-
-		// Check if turning in place is required
-		if(Motion.velLin>0.01*0.001 && fabs(errHeading) > M_PI/2.0) {
-			must_stop=1;
-		} else if(Motion.velLin<0.01*0.001 && fabs(errHeading) < M_PI/16.0) { // heading ok, start again
-			must_stop=0;
-		}
-
-		// Calculate and apply rotational velocity
-		float velRot=errHeading*10.0*(!must_stop || (must_stop && Motion.velLin<0.01*0.001)); // if turning in place: first wait for the robot to stop, then rotate
-		Motion.setVelRot(((velRot<w_max)?((velRot>-w_max)?(velRot):-w_max):w_max)*(dist > dist_accuracy));
-
-		// Calculate and apply linear velocity
-		float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // lower velocity if errHeading is significant
-		float velLin=v_max*scale*(!must_stop); // stop if turning in place
-		Motion.setVelLin(((velLin>v_min)?velLin:v_min));
-
+		Trajectory.tick(); //
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
 
-		debug=TIMER-timer; // used to check if this loop takes more than 1ms (failure)
-		if(debug>500) print("MOTION TICK TOO LONG!\r\n"); // something went wrong
+		uint16_t tick_length=TIMER-timer; // used to check if this loop takes more than 1ms (failure)
+		if(tick_length>500) print("MOTION TICK TOO LONG!\r\n"); // something went wrong
 	}
 }
 
@@ -356,17 +297,20 @@ void StartRangeSensorsTask(void const * argument) {
 			// LED6 ON
 			LED6_GPIO_Port->BSRR = (uint32_t)LED6_Pin;
 			// Read range from sensor and reset its interrupt flag
+			uint8_t max_tries=5;
 			do {
 				i2c1_fail=0;
 				ranges[sensor_id]=sensors[sensor_id].readRange();
 				sensors[sensor_id].clearInterrupts();
-			} while(i2c1_fail);
+				max_tries--;
+			} while(i2c1_fail && max_tries);
 			// LED6 OFF
 			LED6_GPIO_Port->BSRR = (uint32_t)LED6_Pin << 16U;
 		} else {
 			//something went wrong - reset interrupts
 			for(uint8_t i=0; i<10; i++) {
 				sensors[i].clearInterrupts();
+
 			}
 		}
 	}

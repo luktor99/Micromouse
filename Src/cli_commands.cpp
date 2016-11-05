@@ -180,38 +180,6 @@ static BaseType_t funRC(char *buffer, size_t bufferLen, const char *commandStr) 
 			character=event.value.v;
 
 			switch(character) {
-			case 'w':
-				if(!forward) {
-					Motion.setVelLin(spd);
-					forward=1;
-				}
-				else {
-					Motion.setVelLin(0.0);
-					forward=0;
-				}
-				break;
-			case 's':
-				Motion.setVelLin(0.0);
-				Motion.setVelRot(0.0);
-				break;
-			case 'a':
-				Motion.setVelRot(6.28318530718);
-				break;
-			case 'd':
-				Motion.setVelRot(6.28318530718);
-				break;
-			case 'q':
-				break;
-			case 'e':
-				break;
-			case '+':
-				spd+=0.05;
-				if(forward) Motion.setVelLin(spd);
-				break;
-			case '-':
-				spd-=0.05;
-				if(forward) Motion.setVelLin(spd);
-				break;
 			case '7':
 				Motion.setkP(Motion.kP+1.0);
 				print("kP: %.3f\r\n", Motion.kP);
@@ -235,50 +203,6 @@ static BaseType_t funRC(char *buffer, size_t bufferLen, const char *commandStr) 
 			case '3':
 				Motion.setkD(Motion.kD-100.0);
 				print("kD: %.3f\r\n", Motion.kD);
-				break;
-			case 'C':
-				heading-=3.1415/2.0;
-				break;
-			case 'D':
-				heading+=3.1415/2.0;
-				break;
-			case 'v':
-				targetX=0.0;
-				targetY=0.0;
-				targetHeading=0.0;
-				targetNew=1;
-				break;
-			case 'b':
-				targetX=0.2;
-				targetY=0.0;
-				targetHeading=M_PI/2.0;
-				targetNew=1;
-				break;
-			case 'n':
-				targetX=0.2;
-				targetY=0.2;
-				targetHeading=-M_PI;
-				targetNew=1;
-				break;
-			case 'm':
-				targetX=0.0;
-				targetY=0.2;
-				targetHeading=3.0*M_PI/2.0;
-				targetNew=1;
-				break;
-			case ' ':
-				targetX=0.1;
-				targetY=0.1;
-				targetHeading=M_PI;
-				targetNew=1;
-				break;
-			case ',':
-				testvar-=0.01;
-				print("%.3f\r\n", testvar);
-				break;
-			case '.':
-				testvar+=0.01;
-				print("%.3f\r\n", testvar);
 				break;
 			}
 		}

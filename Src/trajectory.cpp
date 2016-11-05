@@ -22,6 +22,13 @@ TrajectoryCtrl::TrajectoryCtrl(void) {
 	lastCellX=0;
 	lastCellY=0;
 	lastOrientation=UP;
+
+	// Initialize Bezier curve variables
+	step=0.0;
+	must_stop=0;
+	signal_sent=0;
+	targetX=0.0;
+	targetY=0.0;
 }
 
 void TrajectoryCtrl::pushCurveSearchRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y) {
@@ -57,8 +64,9 @@ void TrajectoryCtrl::updateTarget(float t) {
 		targetX = ((vaX*t + vbX)*t + vcX)*t + vp0X;
 		targetY = ((vaY*t + vbY)*t + vcY)*t + vp0Y;
 	} else {
+		// Extrapolate the Bezier curve using its last direction vector (finish_x, finish_y)
 		targetX = ((vaX + vbX) + vcX) + vp0X + finish_x*(t-1.0);
-		targetX = ((vaY + vbY) + vcY) + vp0Y + finish_y*(t-1.0);
+		targetY = ((vaY + vbY) + vcY) + vp0Y + finish_y*(t-1.0);
 	}
 }
 
@@ -95,6 +103,57 @@ float TrajectoryCtrl::invFuncS(float t) {
 	//
 	//    // return 1/S(t)
 	//	return out;
+}
+
+void TrajectoryCtrl::tick() {
+	float dx=targetX-Motion.posX, dy=targetY-Motion.posY;
+	float dist=sqrt(dx*dx+dy*dy); // distance to the target
+
+	// Calculate target heading and the error
+	float targetHeading=atan2(dy, dx);
+	float errHeading=clampAngle(targetHeading-Motion.heading);
+
+	// Current target captured, set the next one if available
+	if(dist < dist_accuracy) {
+		step+=0.01; // increment the step variable
+
+		// check if we've just finished the current curve
+		if(step>=1.0) {
+			// is there another one waiting in the queue?
+			if(Trajectory.count() > 0) {
+				// load the new curve
+				Trajectory.loadCurve();
+				// move to its first point
+				step=0.0;
+				// reset signal_sent flag
+				signal_sent=0;
+			} else {
+				// Send a signal to start a cell scan
+				//osSignalSet(alogorithmtask, 100);
+				//signal_sent=1;
+				step=1.0; // hold this position
+			}
+		}
+
+		// Update the target position
+		Trajectory.updateTarget(step);
+	}
+
+	// Check if turning in place is required
+	if(Motion.velLin>0.01*0.001 && fabs(errHeading) > M_PI/2.0) {
+		must_stop=1;
+	} else if(Motion.velLin<0.01*0.001 && fabs(errHeading) < M_PI/16.0) { // heading ok, start again
+		must_stop=0;
+	}
+
+	// Calculate and apply rotational velocity
+	float velRot=errHeading*10.0*(!must_stop || (must_stop && Motion.velLin<0.01*0.001)); // if turning in place: first wait for the robot to stop, then rotate
+	Motion.setVelRot(((velRot<velRotMax)?((velRot>-velRotMax)?(velRot):-velRotMax):velRotMax)*(dist > dist_accuracy));
+
+	// Calculate and apply linear velocity
+	float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // lower velocity if errHeading is significant
+	float velLin=velLinMax*scale*(!must_stop); // stop if turning in place
+	Motion.setVelLin(((velLin>velLinMin)?velLin:velLinMin));
 }
 
 void TrajectoryCtrl::addSearchMove(uint8_t move) {

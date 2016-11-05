@@ -11,12 +11,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-float heading=0.0;
-float targetX=0.1, targetY=0.0, targetHeading=0.0;
-uint8_t targetNew=1.0;
-float testvar=0.0;
-uint32_t debug;
-
+// Battery voltage data
 uint16_t adc_lipo[3];
 
 // Create buffers
@@ -28,8 +23,8 @@ char buffer_CLI_RX_prev[UART3_RX_bufferlenCLI];
 // Declare MotorCtrl instance
 MotionCtrl Motion;
 
+// Range sensors data
 uint8_t ranges[10];
-
 
 // *** Queues ***
 osMessageQId uart3rx_queue_id;

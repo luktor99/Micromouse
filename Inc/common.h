@@ -13,14 +13,11 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 
+// Timer used to examine various execution times
 #define TIMER TIM5->CNT
 
+// Battery voltage data
 extern uint16_t adc_lipo[3];
-extern float heading;
-extern float targetX, targetY, targetHeading;
-extern uint8_t targetNew;
-extern float testvar;
-extern uint32_t debug;
 
 // Buffers' lengths
 #define UART3_TX_bufferlen		500 // max length of print() function output

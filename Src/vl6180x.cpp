@@ -91,7 +91,7 @@ void VL6180X::poll(void) {
 uint8_t VL6180X::read8(uint16_t reg) {
 	uint8_t packet;
 	HAL_I2C_Mem_Read_IT(i2c_handle, address, reg, I2C_MEMADD_SIZE_16BIT, &packet, 1);
-	if(osSemaphoreWait(i2c1_semaphore_id, 2) != osOK) {
+	if(osSemaphoreWait(i2c1_semaphore_id, 3) != osOK) {
 		i2c1_fail=1;
 		// reinit the I2C structure - dirty but works
 		hi2c1.ErrorCode = 0;
@@ -118,7 +118,7 @@ uint32_t VL6180X::read32(uint16_t reg) {
 
 void VL6180X::write8(uint16_t reg, uint8_t data) {
 	HAL_I2C_Mem_Write_IT(i2c_handle, (uint16_t) address, reg, I2C_MEMADD_SIZE_16BIT, &data, 1);
-	if(osSemaphoreWait(i2c1_semaphore_id, 2) != osOK) {
+	if(osSemaphoreWait(i2c1_semaphore_id, 3) != osOK) {
 		i2c1_fail=1;
 		// reinit the I2C structure - dirty but works
 		hi2c1.ErrorCode = 0;
