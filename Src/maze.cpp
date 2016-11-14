@@ -36,6 +36,11 @@ Maze::Maze()
 		droga[x][0] = -1;
 		droga[x][1] = -1;
 	}
+	for (x = 0; x < 100; x++)
+	{
+		sciezka[x] = 255;
+	}
+
 
 	droga[0][0] = 0;
 	droga[0][1] = 0;
@@ -62,7 +67,7 @@ Maze::Maze()
 
 uint8_t Maze::nextscanstep(void)
 {
-	uint8_t w, e, d, k;
+	uint8_t d, k;
 
 	sensor_front = Motion.wallState[FRONT];
 	sensor_left = Motion.wallState[LEFT];
@@ -71,30 +76,13 @@ uint8_t Maze::nextscanstep(void)
 
 	sensory_zamiana();
 	obrobkaSensorow();
-	czy_i_gdzie_jechac();
-
-	if (l == 1) {
-		jaka_nastepna_komorka();
-		w = i;
-		e = j;
-		i = a;
-		j = b;
-	}
-	else {
-		zalewanie();
-		czy_i_gdzie_jechac();
-		jaka_nastepna_komorka();
-		w = i;
-		e = j;
-		i = a;
-		j = b;
-	}
+	oblicz_ruch();
 
 	////////////////////////////////////////////////////
 	// fragment odpowiedzialny za przewidywanie nastêpnych ruchów podczas skanowania na podstawie komórek w których ju¿ byliœmy
 	while (1)
 	{
-		if (czy_byl[i][j] == 1)
+		if (czy_byl[i][j] == 1 && mapa[i][j] != 0)
 		{
 
 			if (lastmove == MS_BACK)
@@ -125,24 +113,7 @@ uint8_t Maze::nextscanstep(void)
 
 			}
 
-			czy_i_gdzie_jechac();
-
-			if (l == 1) {
-				jaka_nastepna_komorka();
-				w = i;
-				e = j;
-				i = a;
-				j = b;
-			}
-			else {
-				zalewanie();
-				czy_i_gdzie_jechac();
-				jaka_nastepna_komorka();
-				w = i;
-				e = j;
-				i = a;
-				j = b;
-			}
+			oblicz_ruch();
 		}
 		else
 		{
@@ -152,6 +123,7 @@ uint8_t Maze::nextscanstep(void)
 	/////////////////////////////////////////////////////
 
 	czy_byl[i][j] = 1;
+
 	if (lastmove == MS_BACK)
 	{
 		switch (nextmove)
@@ -175,12 +147,13 @@ uint8_t Maze::nextscanstep(void)
 	}
 
 
-	if (mapa[w][e] != 0)
+	if (mapa[i][j] != 0)
 	{
-		return 1;
+		return MAZE_STEP;
 	}
 	else
 	{
+		Trajectory.addSearchMove(M_FINISH);
 		i = 0;
 		j = 0;
 		d = 1;
@@ -192,6 +165,8 @@ uint8_t Maze::nextscanstep(void)
 			{
 				break;
 			}
+			jaka_nastepna_komorka();
+			sciezka[k-2] = nextmove;
 			i = a;
 			j = b;
 			droga[k][0] = i;
@@ -204,13 +179,15 @@ uint8_t Maze::nextscanstep(void)
 		{
 			maze_reinit();
 			//nale¿y wykonaæ kolejny przejazd skanuj¹cy
-			// w tym rozwi¹zaniu wystarczy przestawiæ robota na start i wywo³aæ kolejny raz nextscanstep
+			print("RETRY\r\n");
+			return MAZE_RESCAN;
 		}
 		else{
 			//ca³a droga znana -> mo¿na wykonywaæ przejazd na czas
+			print("FASTRUN\r\n");
+			return MAZE_FASTRUN;
 		}
 
-		return 0;
 	}
 }
 
@@ -233,17 +210,26 @@ void Maze::maze_reinit()
 		droga[x][0] = -1;
 		droga[x][1] = -1;
 	}
+	for (x = 0; x < 100; x++)
+	{
+		sciezka[x] = 255;
+	}
 
 
 	droga[0][0] = 0;
 	droga[0][1] = 0;
+
+	droga[1][0] = 1;
+	droga[1][1] = 0;
+
+	sensor_prawo[0][0] = 1;
 
 	kierunek = polnoc;
 
 	obrobkaSensorow();
 	zalewanie(); // pirwsze zalanie labiryntu
 
-	i = 0;
+	i = 1;
 	j = 0;
 	a = 0;
 	b = 0;
@@ -543,6 +529,73 @@ void Maze::sensory_zamiana()
 		break;
 	}
 }
+
+void Maze::oblicz_ruch()
+{
+	czy_i_gdzie_jechac();
+
+	if (l == 1) {
+		jaka_nastepna_komorka();
+		i = a;
+		j = b;
+	}
+	else {
+		zalewanie();
+		czy_i_gdzie_jechac();
+		jaka_nastepna_komorka();
+		i = a;
+		j = b;
+	}
+}
+
+void Maze::szybko() {
+	uint8_t dlpr = 0;
+	uint8_t x;
+	uint8_t y;
+
+	Trajectory.addSearchMove(M_START);
+	print("ruch start\r\n");
+
+	for (x = 0; x<100; x++){
+		if (sciezka[x] == MS_FORWARD){
+//			dlpr = 1;
+//			for (y = x; y<16; y++){
+//				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
+//					dlpr++;
+//				}
+//				else{
+//					break;
+//				}
+//			}
+//			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
+//			print("ruch prosto o %u \r\n", dlpr);
+		Trajectory.addSearchMove(MS_FORWARD);
+		print("prosto\r\n");
+		x++;
+		}
+		else if (sciezka[x] == MS_LEFT){
+			//Trajectory.addFastMove(MF_LEFT);
+			Trajectory.addSearchMove(MS_LEFT);
+			print("w lewo\r\n");
+			x++;
+		}
+		else if (sciezka[x] == MS_RIGHT) {
+			//Trajectory.addFastMove(MF_RIGHT);
+			Trajectory.addSearchMove(MS_RIGHT);
+			print("w prawo\r\n");
+			x++;
+		}
+		else{
+			Trajectory.addSearchMove(M_FINISH);
+			print("ruch stop\r\n");
+			return;
+		}
+
+		x = x + dlpr - 1;
+		dlpr = 0;
+	}
+}
+
 
 /*void Maze::zalewanie2()
 {

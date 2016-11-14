@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+enum algorithm_state {MAZE_RESCAN, MAZE_STEP, MAZE_FASTRUN};
+
 class Maze
 {
 public:
@@ -10,6 +12,7 @@ public:
 
 	Maze(void); // konstruktor domyœlny - inicjalizacja labiryntu
 	uint8_t nextscanstep(void); // funkcja obliczaj¹ca nastêpny ruch robota, nale¿y wywo³aæ przy wjeŸdzie do komórki
+	void szybko(void); // sekwencja ruchów do szybkiego przejzdu
 
 private:
 	enum kierunek {polnoc, wschod, poludnie, zachod};
@@ -18,6 +21,7 @@ private:
 	uint8_t sensor_dol[16][16];
 	uint8_t sensor_lewo[16][16];
 	int16_t mapa[16][16]; // tablica z wagami kolejnych komórek labiryntu
+	uint8_t sciezka[100]; // tablica ruchów dla szybkiego przejzadu
 	uint8_t droga[256][2]; // tablica przechowuj¹ca wspo³rzêdne kolejnych komórek dla drogi do przejzadu na czas
 	//uint8_t  kierunekTab[16][16]; // odkomentowaæ w przypadku wykorzystania zalewania czasem
 	uint8_t i = 0; //wiersz
@@ -44,7 +48,7 @@ private:
 	void jaka_nastepna_komorka(void); // funkcja okreœlaj¹ca wymagany ruch robota {PROSTO, LEWO, PRAWO, DO_TYLU} w zale¿noœci od aktualnego kierunku i nastêpnej komórki
 	void sensory_zamiana(void);
 	void maze_reinit(void); // ponowna inicjalizacja labiryntu -> wymagana kiedy realizowany jest nastêpny przejazd skanuj¹cy zaczynaj¹cy siê w rogu labiryntu
-
+	void oblicz_ruch(void); // oblicza nastêpn¹ komórkê oraz ruch jaki nale¿y wykonaæ aby do niej dojechaæ
 };
 
 // global Maze instance

@@ -70,7 +70,7 @@ void createThreads(void) {
 	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0, 128);
 	LiPoMonitorTaskHandle = osThreadCreate(osThread(LiPoMonitorTask), NULL);
 	// Maze algorithm task
-	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 2560);
+	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 5120);
 	MazeAlgorithmTaskHandle = osThreadCreate(osThread(MazeAlgorithmTask), NULL);
 }
 
@@ -201,13 +201,8 @@ void StartMotionControlTask(void const * argument) {
 	// Start PID timer
 	HAL_TIM_Base_Start_IT(&htim9);
 
-	// wait for trajectory to be generated in defaultTask (TODO: to be removed)
-	osDelay(1000);
 	// reset robot's heading and position
 	Motion.resetLocalisation();
-	// Set the first target point
-	Trajectory.loadCurve();
-	Trajectory.updateTarget(0.0);
 
 	/* Infinite loop */
 	for(;;) {
@@ -478,16 +473,73 @@ void StartLiPoMonitorTask(void const * argument) {
 }
 
 void StartMazeAlgorithmTask(void const * argument) {
-	// Go to the first border, to initiate the first scan
-	Trajectory.addSearchMove(M_START);
 
+	bool fastrun=false;
+	// SEARCH RUNS LOOP
 	for(;;) {
+		// Go to the first border, to initiate the first scan
+		Motion.resetLocalisation();
+		Trajectory.reset();
+		Trajectory.addSearchMove(M_START);
+		// Set the first target point
+		Trajectory.loadCurve();
+		Trajectory.updateTarget(0.0);
+
+		for(;;) {
+			// wait for a scan signal
+			osSignalWait(SIGNAL_SCAN, osWaitForever);
+			// enable buzzer
+			BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+			// DEBUG: print wall info
+			//print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
+			uint8_t result=maze.nextscanstep();
+			if(result != MAZE_STEP) {
+				if(result == MAZE_FASTRUN){
+					fastrun=true;
+				}
+				// wait for the last command to be executed
+				osSignalWait(SIGNAL_SCAN, osWaitForever);
+				// stop motors
+				Motion.disable();
+				// disable buzzer
+				BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+				break;
+			}
+			osDelay(2);
+			// disable buzzer
+			BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+		}
+		if(fastrun) break;
+	}
+
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+	osDelay(500);
+	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+
+	// FAST RUNS LOOP
+	for(;;) {
+		// Go to the first border, to initiate the first scan
+		Motion.resetLocalisation();
+		Trajectory.reset();
+
+		// Calculate fast run path
+		maze.szybko();
+
+		// Set the first target point
+		Trajectory.loadCurve();
+		Trajectory.updateTarget(0.0);
+
 		osSignalWait(SIGNAL_SCAN, osWaitForever);
-		BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-		print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
-		maze.nextscanstep();
-		osDelay(50);
-		BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+		Motion.disable();
 	}
 }
 
@@ -784,25 +836,25 @@ void m_run(Menu *m, uint8_t parent) {
 	Motion.resetLocalisation();
 	Motion.enable();
 
-	for(;;) {
-		u8g_SetDefaultForegroundColor(&u8g);
-		u8g_FirstPage(&u8g);
-		do {
-			draw_statusbar();
-
-			u8g_DrawStr(&u8g, 0, 12, "SCANNING");
-
-		} while(u8g_NextPage(&u8g));
-
-		// check is button has been pressed
-		osEvent event = osMessageGet(buttons_queue_id, 100);
-		if(event.status == osEventMessage) {
-			// Key has been pressed
-			uint8_t key=event.value.v;
-			break; // exit
-		}
-	}
-	Motion.disable();
+//	for(;;) {
+//		u8g_SetDefaultForegroundColor(&u8g);
+//		u8g_FirstPage(&u8g);
+//		do {
+//			draw_statusbar();
+//
+//			u8g_DrawStr(&u8g, 0, 12, "SCANNING");
+//
+//		} while(u8g_NextPage(&u8g));
+//
+//		// check is button has been pressed
+//		osEvent event = osMessageGet(buttons_queue_id, 100);
+//		if(event.status == osEventMessage) {
+//			// Key has been pressed
+//			uint8_t key=event.value.v;
+//			break; // exit
+//		}
+//	}
+//	Motion.disable();
 }
 
 extern "C" {

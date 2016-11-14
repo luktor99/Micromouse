@@ -259,8 +259,8 @@ void MotionCtrl::tick(void) {
 	}
 	else {
 		wallState[FRONT] = (ranges[FFL] < wall_thresh_front && ranges[FFR] < wall_thresh_front);
-		wallState[LEFT] = (ranges[FSL] < wall_thresh_side);
-		wallState[RIGHT] = (ranges[FSR] < wall_thresh_side);
+		wallState[LEFT] = (ranges[FDL] < wall_thresh_diag);
+		wallState[RIGHT] = (ranges[FDR] < wall_thresh_diag);
 	}
 }
 
@@ -389,7 +389,7 @@ void MotionCtrl::checkWall(float r1, float r2, uint8_t wall, float d, float r, f
 		// calculate the distance from the robot's center point to the wall
 		float dist=calcDist(r1, r2, r, ang)*0.001-dist_calib[wall]; // unit converted from mm to m
 		// don't correct position if we see a wall in another cell
-		uint8_t correctPos=(dist<0.16);
+		uint8_t correctPos=(dist<0.14); // was 0.16
 
 		// only continue if this angle is small
 		if(fabs(ang) < 0.3) {

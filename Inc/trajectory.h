@@ -12,7 +12,7 @@
 #include <queue>
 
 // Trajectory follow constants
-const float velLinMax=0.2; // Max linear velocity TODO: change to a variable (for speed profiling purposes)
+const float velLinMax=0.4; // Max linear velocity TODO: change to a variable (for speed profiling purposes)
 const float velLinMin=0.0; // Min linear velocity (to prevent the robot from going backwards in certain conditions)
 const float velRotMax=30.0; // Max rotational velocity
 const float dist_accuracy=0.015; // accuracy of position following (15mm)
@@ -28,7 +28,8 @@ const uint16_t CELL_FULL = 180;
 
 enum moves {
 	MS_FORWARD, MS_LEFT, MS_RIGHT, MS_BACK, MS_BACKLEFT, MS_BACKRIGHT, // search run moves
-	M_START, M_FINISH // START gets from the border to the center of a cell, FINISH does the opposite
+	M_START, M_FINISH, // START gets from the border to the center of a cell, FINISH does the opposite
+	MF_FORWARD=8, MF_LEFT=22, MF_RIGHT
 };
 
 enum CURVE_TYPES {
@@ -60,13 +61,16 @@ public:
 	TrajectoryCtrl();
 	void tick();
 	void pushCurveSearchRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y);
+	void pushCurveFastRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y,uint8_t type,uint8_t speed1, uint8_t speed2);
 	void loadCurve();
 	void updateTarget(float);
 	float stepDelta(float t);
 	uint16_t cellToPos(uint16_t cell);
 	uint16_t count();
+	void reset();
 
 	void addSearchMove(uint8_t move);
+	void addFastMove(uint8_t move);
 //private:
 	float invFuncS(float t);
 
@@ -80,6 +84,7 @@ public:
 	float vbX, vbY;
 	float vcX, vcY;
 	float vp0X, vp0Y;
+	uint8_t type, speed1, speed2;
 
 	// position on the curve
 	float step;

@@ -400,6 +400,7 @@ void MX_USART3_UART_Init(void) {
 	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
 	HAL_UART_Init(&huart3);
 
+
 }
 
 /** Configure pins as

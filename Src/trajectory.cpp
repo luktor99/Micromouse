@@ -34,6 +34,13 @@ TrajectoryCtrl::TrajectoryCtrl(void) {
 void TrajectoryCtrl::pushCurveSearchRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X, uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y) {
 	container.push(BezierCurve(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y));
 }
+void TrajectoryCtrl::pushCurveFastRun(uint16_t P1X, uint16_t P1Y, uint16_t D1X,
+		uint16_t D1Y, uint16_t P2X, uint16_t P2Y, uint16_t D2X, uint16_t D2Y,
+		uint8_t type, uint8_t speed1, uint8_t speed2) {
+	container.push(
+			BezierCurve(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y, type, speed1,
+					speed2));
+}
 
 void TrajectoryCtrl::loadCurve() {
 	// calculate the required factors
@@ -53,7 +60,24 @@ void TrajectoryCtrl::loadCurve() {
 	finish_x /= length;
 	finish_y /= length;
 
-	// TODO: load speed and type of the curve as well
+	// load speed and type of the curve as well
+		//get parameters
+		type = container.front().type;
+		speed1 = container.front().speed1;
+		speed2 = container.front().speed2;
+
+		switch (type) {
+		case CURVE_SEARCHRUN:
+			break;
+		case CURVE_CONSTANT:
+			break;
+		case CURVE_LINEAR:
+			break;
+		case CURVE_BRAKE:
+			break;
+		case CURVE_SCAN:
+			break;
+		}
 
 	// remove the curve from the queue
 	container.pop();
@@ -151,9 +175,209 @@ void TrajectoryCtrl::tick() {
 	Motion.setVelRot(((velRot<velRotMax)?((velRot>-velRotMax)?(velRot):-velRotMax):velRotMax)*(dist > dist_accuracy));
 
 	// Calculate and apply linear velocity
-	float scale=(1.0-pow(fabs(errHeading)/(0.5*M_PI), 4.0)); // lower velocity if errHeading is significant
+	float scale=(1.0); // lower velocity if errHeading is significant
 	float velLin=velLinMax*scale*(!must_stop); // stop if turning in place
 	Motion.setVelLin(((velLin>velLinMin)?velLin:velLinMin));
+}
+
+void TrajectoryCtrl::addFastMove(uint8_t move) {
+	//debug printing
+	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
+		print("FF %d", move);
+	else if (move == MF_LEFT)
+		print("FL ");
+	else if (move == MF_RIGHT)
+		print("FR ");
+	//points defining bezier curve
+	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
+
+	if (lastOrientation == UP) {
+		if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y + (move + 1 - MF_FORWARD) * CELL_FULL;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
+			lastCellY += move + 1 - MF_FORWARD;
+		}
+
+		else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+			lastCellY++;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+			lastCellY++;
+		}
+
+		uint8_t type = CURVE_CONSTANT;
+		uint8_t speed1 = 255;
+		uint8_t speed2 = 255;
+		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
+				type, speed1, speed2);
+	}
+
+	else if (lastOrientation == RIGHT) {
+		if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
+
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+
+			D1X = P1X + CELL_HALF;
+			D1Y = P1Y;
+
+			P2X = P1X + (move + 1 - MF_FORWARD) * CELL_FULL;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+			lastCellX += move + 1 - MF_FORWARD;
+
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y + SCAN_OUT;
+			lastOrientation = DOWN;
+			lastCellX++;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y - SCAN_OUT;
+			lastOrientation = UP;
+			lastCellX++;
+		}
+		uint8_t type = CURVE_CONSTANT;
+		uint8_t speed1 = 255;
+		uint8_t speed2 = 255;
+		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
+				type, speed1, speed2);
+	}
+
+	else if (lastOrientation == LEFT) {
+		if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
+			if (move == MS_FORWARD) {
+				P1X = cellToPos(lastCellX) - CELL_HALF;
+				P1Y = cellToPos(lastCellY);
+				D1X = P1X - CELL_HALF;
+				D1Y = P1Y;
+				P2X = P1X - (move + 1 - MF_FORWARD) * CELL_FULL;
+				P2Y = P1Y;
+				D2X = D1X;
+				D2Y = D1Y;
+				//lastOrientation = LEFT;
+				lastCellX -= (move + 1 - MF_FORWARD);
+
+			}
+			if (move == MS_FORWARD) {
+				P1X = cellToPos(lastCellX) - CELL_HALF;
+				P1Y = cellToPos(lastCellY);
+				D1X = P1X - CELL_HALF;
+				D1Y = P1Y;
+				P2X = P1X - CELL_FULL;
+				P2Y = P1Y;
+				D2X = D1X;
+				D2Y = D1Y;
+				//lastOrientation = LEFT;
+				lastCellX--;
+			} else if (move == MS_RIGHT) {
+				P1X = cellToPos(lastCellX) - CELL_HALF;
+				P1Y = cellToPos(lastCellY);
+				D1X = P1X - SCAN_IN;
+				D1Y = P1Y;
+				P2X = P1X - CELL_HALF;
+				P2Y = P1Y + CELL_HALF;
+				D2X = P2X;
+				D2Y = P2Y - SCAN_OUT;
+				lastOrientation = UP;
+				lastCellX--;
+			} else if (move == MS_LEFT) {
+				P1X = cellToPos(lastCellX) - CELL_HALF;
+				P1Y = cellToPos(lastCellY);
+				D1X = P1X - SCAN_IN;
+				D1Y = P1Y;
+				P2X = P1X - CELL_HALF;
+				P2Y = P1Y - CELL_HALF;
+				D2X = P2X;
+				D2Y = P2Y + SCAN_OUT;
+				lastOrientation = DOWN;
+				lastCellX--;
+			}
+			uint8_t type = CURVE_CONSTANT;
+			uint8_t speed1 = 255;
+			uint8_t speed2 = 255;
+			Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
+					type, speed1, speed2);
+		} else if (lastOrientation == DOWN) {
+			if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
+				P1X = cellToPos(lastCellX);
+				P1Y = cellToPos(lastCellY) - CELL_HALF;
+				D1X = P1X;
+				D1Y = P1Y - CELL_HALF;
+				P2X = P1X;
+				P2Y = P1Y - (move + 1 - MF_FORWARD) * CELL_FULL;
+				D2X = D1X;
+				D2Y = D1Y;
+				//lastOrientation = DOWN;
+				lastCellY -= (move + 1 - MF_FORWARD);
+			}
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+			lastCellY--;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+			lastCellY--;
+		}
+		uint8_t type = CURVE_CONSTANT;
+		uint8_t speed1 = 255;
+		uint8_t speed2 = 255;
+		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
+				type, speed1, speed2);
+	}
 }
 
 void TrajectoryCtrl::addSearchMove(uint8_t move) {
@@ -168,6 +392,19 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 
 	if(lastOrientation == UP) {
+		if(move==M_FINISH) {
+					P1X = cellToPos(lastCellX);
+					P1Y = cellToPos(lastCellY) + CELL_HALF;
+					D1X = P1X;
+					D1Y = P1Y + CELL_HALF;
+					P2X = P1X;
+					P2Y = P1Y + CELL_HALF;
+					D2X = D1X;
+					D2Y = D1Y;
+					//lastOrientation = UP;
+					lastCellY++;
+				}
+
 		if(move==MS_FORWARD) {
 			P1X = cellToPos(lastCellX);
 			P1Y = cellToPos(lastCellY) + CELL_HALF;
@@ -252,6 +489,20 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
 	}
 	else if(lastOrientation == RIGHT) {
+		if(move==M_FINISH) {
+					P1X = cellToPos(lastCellX) + CELL_HALF;
+					P1Y = cellToPos(lastCellY);
+					D1X = P1X + CELL_HALF;
+					D1Y = P1Y;
+					P2X = P1X + CELL_HALF;
+					P2Y = P1Y;
+					D2X = D1X;
+					D2Y = D1Y;
+					//lastOrientation = RIGHT;
+					lastCellX++;
+				}
+
+
 		if(move==MS_FORWARD) {
 			P1X = cellToPos(lastCellX) + CELL_HALF;
 			P1Y = cellToPos(lastCellY);
@@ -336,6 +587,19 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
 	}
 	else if(lastOrientation == LEFT) {
+		if(move==M_FINISH) {
+					P1X = cellToPos(lastCellX) - CELL_HALF;
+					P1Y = cellToPos(lastCellY);
+					D1X = P1X - CELL_HALF;
+					D1Y = P1Y;
+					P2X = P1X - CELL_HALF;
+					P2Y = P1Y;
+					D2X = D1X;
+					D2Y = D1Y;
+					//lastOrientation = LEFT;
+					lastCellX--;
+				}
+
 		if(move==MS_FORWARD) {
 			P1X = cellToPos(lastCellX) - CELL_HALF;
 			P1Y = cellToPos(lastCellY);
@@ -420,6 +684,20 @@ void TrajectoryCtrl::addSearchMove(uint8_t move) {
 		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
 	}
 	else if(lastOrientation == DOWN) {
+
+		if(move==M_FINISH) {
+					P1X = cellToPos(lastCellX);
+					P1Y = cellToPos(lastCellY) - CELL_HALF;
+					D1X = P1X;
+					D1Y = P1Y - CELL_HALF;
+					P2X = P1X;
+					P2Y = P1Y - CELL_HALF;
+					D2X = D1X;
+					D2Y = D1Y;
+					//lastOrientation = DOWN;
+					lastCellY--;
+				}
+
 		if(move==MS_FORWARD) {
 			P1X = cellToPos(lastCellX);
 			P1Y = cellToPos(lastCellY) - CELL_HALF;
@@ -511,6 +789,19 @@ uint16_t TrajectoryCtrl::count() {
 
 uint16_t TrajectoryCtrl::cellToPos(uint16_t cell) {
 	return cell*180+90;
+}
+
+void TrajectoryCtrl::reset() {
+	lastOrientation=UP;
+	lastCellX=0;
+	lastCellY=0;
+
+	// Initialize Bezier curve variables
+	step=0.0;
+	must_stop=0;
+	signal_sent=0;
+	targetX=0.09;
+	targetY=0.09;
 }
 
 
