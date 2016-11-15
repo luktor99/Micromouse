@@ -14,6 +14,10 @@
 // Battery voltage data
 uint16_t adc_lipo[3];
 
+// Scanning steps (flag for the OLED display)
+uint8_t scanning_step;
+uint8_t speed_dmps;
+
 // Create buffers
 uint8_t buffer_print[UART3_TX_bufferlen];
 char buffer_CLI_RX[UART3_RX_bufferlenCLI];

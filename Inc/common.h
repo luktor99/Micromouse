@@ -19,6 +19,10 @@
 // Battery voltage data
 extern uint16_t adc_lipo[3];
 
+// Scanning steps (flag for the OLED display)
+extern uint8_t scanning_step;
+extern uint8_t speed_dmps;
+
 // Buffers' lengths
 #define UART3_TX_bufferlen		500 // max length of print() function output
 #define UART3_TX_bufferlenCLI 	500 // size of CLI's output buffer

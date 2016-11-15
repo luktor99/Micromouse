@@ -176,7 +176,7 @@ void TrajectoryCtrl::tick() {
 
 	// Calculate and apply linear velocity
 	float scale=(1.0); // lower velocity if errHeading is significant
-	float velLin=velLinMax*scale*(!must_stop); // stop if turning in place
+	float velLin=Motion.velLinMax*scale*(!must_stop); // stop if turning in place
 	Motion.setVelLin(((velLin>velLinMin)?velLin:velLinMin));
 }
 

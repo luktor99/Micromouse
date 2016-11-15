@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+// Robot speed settings (m/s)
+const float speed_searchrun=0.3; // search run speed
+const float speed_fastrun=0.4; // first search run speed
+const float speed_fastrun_step=0.1; // speed increment after each speed run
+
 // Robot dimensions
 const float wheel_radius=0.0189006424;
 const float wheel_dist=0.0717; // distance between the wheels // 0.0700455036
@@ -126,6 +131,8 @@ public:
 	void setL(int32_t pwm);
 	void setR(int32_t pwm);
 	uint16_t clampPWM(uint32_t val);
+
+	float velLinMax; // Max linear velocity
 };
 
 #endif /* MOTION_H_ */

@@ -133,7 +133,7 @@ void StartButtonsPollingTask(void const * argument) {
 	buttons_queue_id = osMessageCreate(&buttons_queue, NULL);
 
 	const uint8_t debounce_cycles=11; // (11-1)*5ms=50ms
-	const uint8_t hold_cycles=41; // (41-1)*5ms=200ms
+	const uint8_t hold_cycles=81; // (81-1)*5ms=400ms
 	static uint8_t buttons_debounce[]={0, 0, 0, 0, 0};
 	static uint8_t buttons_held[]={0, 0, 0, 0, 0};
 	const uint8_t buttons_pins[]={SWITCH_OK_Pin, SWITCH_UP_Pin, SWITCH_DOWN_Pin, SWITCH_LEFT_Pin, SWITCH_RIGHT_Pin};
@@ -473,6 +473,9 @@ void StartLiPoMonitorTask(void const * argument) {
 }
 
 void StartMazeAlgorithmTask(void const * argument) {
+	// Set the default (search run) speed
+	Motion.velLinMax=speed_searchrun;
+	speed_dmps=3;
 
 	bool fastrun=false;
 	// SEARCH RUNS LOOP
@@ -489,7 +492,7 @@ void StartMazeAlgorithmTask(void const * argument) {
 			// wait for a scan signal
 			osSignalWait(SIGNAL_SCAN, osWaitForever);
 			// enable buzzer
-			BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+			//BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
 			// DEBUG: print wall info
 			//print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
 			uint8_t result=maze.nextscanstep();
@@ -502,7 +505,7 @@ void StartMazeAlgorithmTask(void const * argument) {
 				// stop motors
 				Motion.disable();
 				// disable buzzer
-				BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+				//BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
 				break;
 			}
 			osDelay(2);
@@ -512,18 +515,18 @@ void StartMazeAlgorithmTask(void const * argument) {
 		if(fastrun) break;
 	}
 
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-	osDelay(500);
-	BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+	// Update the OLED text
+	scanning_step=1;
+	// Set fast run speed
+	Motion.velLinMax=speed_fastrun;
+	speed_dmps=4;
+	// SCANNING DONE - BEEP
+	for(uint8_t i=0; i<20; i++) {
+		osDelay(50);
+		BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+		osDelay(50);
+		BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+	}
 
 	// FAST RUNS LOOP
 	for(;;) {
@@ -540,9 +543,12 @@ void StartMazeAlgorithmTask(void const * argument) {
 
 		osSignalWait(SIGNAL_SCAN, osWaitForever);
 		Motion.disable();
+
+		// Increase the speed
+		Motion.velLinMax+=speed_fastrun_step;
+		speed_dmps+=1;
 	}
 }
-
 
 // OLED screen "apps" below
 void m_reboot(Menu *m, uint8_t parent) {
@@ -808,7 +814,6 @@ void m_localisation(Menu *m, uint8_t parent) {
 void m_walls(Menu *m, uint8_t parent) {
 	for(;;) {
 		u8g_SetDefaultForegroundColor(&u8g);
-		char buffer[8];
 		u8g_FirstPage(&u8g);
 		do {
 			draw_statusbar();
@@ -831,30 +836,59 @@ void m_walls(Menu *m, uint8_t parent) {
 
 
 void m_run(Menu *m, uint8_t parent) {
-	osDelay(1500);
-	Motion.calib();
-	Motion.resetLocalisation();
-	Motion.enable();
+	static char buffer[8];
 
-//	for(;;) {
-//		u8g_SetDefaultForegroundColor(&u8g);
-//		u8g_FirstPage(&u8g);
-//		do {
-//			draw_statusbar();
-//
-//			u8g_DrawStr(&u8g, 0, 12, "SCANNING");
-//
-//		} while(u8g_NextPage(&u8g));
-//
-//		// check is button has been pressed
-//		osEvent event = osMessageGet(buttons_queue_id, 100);
-//		if(event.status == osEventMessage) {
-//			// Key has been pressed
-//			uint8_t key=event.value.v;
-//			break; // exit
-//		}
-//	}
-//	Motion.disable();
+	for(;;) {
+		u8g_SetDefaultForegroundColor(&u8g);
+		u8g_FirstPage(&u8g);
+		do {
+			draw_statusbar();
+			if(scanning_step==0) u8g_DrawStr(&u8g, 0, 12, "*** SEARCH RUN ***");
+			else if(scanning_step==1)  u8g_DrawStr(&u8g, 0, 12, "**** FAST RUN ****");
+			if(speed_dmps==3) {
+				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s");
+			}
+			else if(speed_dmps==4) {
+				u8g_DrawStr(&u8g, 0, 24, "0.4 m/s");
+			}
+			else if(speed_dmps==5) {
+				u8g_DrawStr(&u8g, 0, 24, "0.5 m/s");
+			}
+			else if(speed_dmps==6) {
+				u8g_DrawStr(&u8g, 0, 24, "0.6 m/s");
+			}
+			else if(speed_dmps==7) {
+				u8g_DrawStr(&u8g, 0, 24, "0.7 m/s");
+			}
+			else if(speed_dmps==8) {
+				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s");
+			}
+			else if(speed_dmps==9) {
+				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s");
+			}
+			else {
+				u8g_DrawStr(&u8g, 0, 24, ">=1.0 m/s");
+			}
+
+			u8g_DrawStr(&u8g, 0, 48, "Press DOWN to start.");
+		} while(u8g_NextPage(&u8g));
+
+		// check is button has been pressed
+		osEvent event = osMessageGet(buttons_queue_id, 100);
+		if(event.status == osEventMessage) {
+			// Key has been pressed
+			uint8_t key=event.value.v;
+			if(key==B_OK) break; // exit
+			else if(key==B_DOWN) {
+				// run
+				osDelay(1500);
+				Motion.calib();
+				Motion.resetLocalisation();
+				Motion.enable();
+			}
+		}
+	}
+	Motion.disable();
 }
 
 extern "C" {
