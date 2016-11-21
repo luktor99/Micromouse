@@ -543,10 +543,6 @@ void StartMazeAlgorithmTask(void const * argument) {
 
 		osSignalWait(SIGNAL_SCAN, osWaitForever);
 		Motion.disable();
-
-		// Increase the speed
-		Motion.velLinMax+=speed_fastrun_step;
-		speed_dmps+=1;
 	}
 }
 
@@ -870,7 +866,8 @@ void m_run(Menu *m, uint8_t parent) {
 				u8g_DrawStr(&u8g, 0, 24, ">=1.0 m/s");
 			}
 
-			u8g_DrawStr(&u8g, 0, 48, "Press DOWN to start.");
+			u8g_DrawStr(&u8g, 0, 38, "Press DOWN to start.");
+			u8g_DrawStr(&u8g, 0, 48, "Speed: LEFT(-) RIGHT{+)");
 		} while(u8g_NextPage(&u8g));
 
 		// check is button has been pressed
@@ -885,6 +882,25 @@ void m_run(Menu *m, uint8_t parent) {
 				Motion.calib();
 				Motion.resetLocalisation();
 				Motion.enable();
+			}
+			else if(key==B_UP) {
+				// fast run emergency stop
+				// Stop the motors
+				Motion.disable();
+				// Remove the rest of the trajectory
+				Trajectory.clear();
+				// Force the algorithm to start a fresh fast run
+				osSignalSet(MazeAlgorithmTaskHandle, SIGNAL_SCAN);
+			}
+			else if(key==B_RIGHT) {
+				// Increase the speed
+				Motion.velLinMax+=speed_fastrun_step;
+				speed_dmps+=1;
+			}
+			else if(key==B_LEFT) {
+				// Decrease the speed
+				Motion.velLinMax-=speed_fastrun_step;
+				speed_dmps-=1;
 			}
 		}
 	}

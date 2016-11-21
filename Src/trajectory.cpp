@@ -804,6 +804,12 @@ void TrajectoryCtrl::reset() {
 	targetY=0.09;
 }
 
+void TrajectoryCtrl::clear() {
+	// Remove all elements from the queue
+	while(container.size()) {
+		container.pop();
+	}
+}
 
 void *malloc(size_t size) {
 	return pvPortMalloc(size);

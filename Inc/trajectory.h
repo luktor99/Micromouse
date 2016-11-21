@@ -66,6 +66,7 @@ public:
 	float stepDelta(float t);
 	uint16_t cellToPos(uint16_t cell);
 	uint16_t count();
+	void clear();
 	void reset();
 
 	void addSearchMove(uint8_t move);
