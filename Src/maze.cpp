@@ -553,7 +553,7 @@ void Maze::szybko() {
 	uint8_t x;
 	uint8_t y;
 
-	Trajectory.addFastMove(M_START);
+	Trajectory.addSearchMove(M_START);
 	print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
@@ -576,14 +576,14 @@ void Maze::szybko() {
 			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
-			Trajectory.addFastMove(MF_LEFT);
-			//Trajectory.addSearchMove(MS_LEFT);
+			//Trajectory.addFastMove(MF_LEFT);
+			Trajectory.addSearchMove(MS_LEFT);
 			print("w lewo\r\n");
 			//x++;
 		}
 		else if (sciezka[x] == MS_RIGHT) {
-			Trajectory.addFastMove(MF_RIGHT);
-			//Trajectory.addSearchMove(MS_RIGHT);
+			//Trajectory.addFastMove(MF_RIGHT);
+			Trajectory.addSearchMove(MS_RIGHT);
 			print("w prawo\r\n");
 			//x++;
 		}
