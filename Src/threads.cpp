@@ -501,23 +501,23 @@ void StartMazeAlgorithmTask(void const * argument) {
 	speed_dmps = 3;
 
 	/*debugging fast fast moves functions*/
-	Motion.resetLocalisation();
-	Trajectory.reset();
-	Trajectory.updateTarget(0.0);
-	Trajectory.addSearchMove(M_START);
-	Trajectory.addFastMove(MF_FORWARD);
-	Trajectory.addFastMove(MF_RIGHT);
-
-	Trajectory.loadCurve();
-	Trajectory.updateTarget(0.0);
-	for(;;)
-	{
-	osSignalWait(SIGNAL_SCAN, osWaitForever);
-	Motion.disable();
-	}
+//	Motion.resetLocalisation();
+//	Trajectory.reset();
+//	Trajectory.updateTarget(0.0);
+//	Trajectory.addSearchMove(M_START);
+//	Trajectory.addFastMove(MF_FORWARD);
+//	Trajectory.addFastMove(MF_RIGHT);
+//
+//	Trajectory.loadCurve();
+//	Trajectory.updateTarget(0.0);
+//	for(;;)
+//	{
+//	osSignalWait(SIGNAL_SCAN, osWaitForever);
+//	Motion.disable();
+//	}
 	/*end of debugging functions*/
 	// SEARCH RUNS LOOP
-/*	bool fastrun = false;
+	bool fastrun = false;
 	for(;;) {
 	 // Go to the first border, to initiate the first scan
 	 Motion.resetLocalisation();
@@ -582,7 +582,7 @@ void StartMazeAlgorithmTask(void const * argument) {
 
 	 osSignalWait(SIGNAL_SCAN, osWaitForever);
 	 Motion.disable();
-	 }*/
+	 }
 
 }
 

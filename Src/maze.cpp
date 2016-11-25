@@ -576,14 +576,14 @@ void Maze::szybko() {
 			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
-			//Trajectory.addFastMove(MF_LEFT);
-			Trajectory.addSearchMove(MS_LEFT);
+			Trajectory.addFastMove(MF_LEFT);
+			//Trajectory.addSearchMove(MS_LEFT);
 			print("w lewo\r\n");
 			//x++;
 		}
 		else if (sciezka[x] == MS_RIGHT) {
-			//Trajectory.addFastMove(MF_RIGHT);
-			Trajectory.addSearchMove(MS_RIGHT);
+			Trajectory.addFastMove(MF_RIGHT);
+			//Trajectory.addSearchMove(MS_RIGHT);
 			print("w prawo\r\n");
 			//x++;
 		}
