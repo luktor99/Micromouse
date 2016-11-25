@@ -65,20 +65,6 @@ void TrajectoryCtrl::loadCurve() {
 		type = container.front().type;
 		speed1 = container.front().speed1;
 		speed2 = container.front().speed2;
-
-		switch (type) {
-		case CURVE_SEARCHRUN:
-			break;
-		case CURVE_CONSTANT:
-			break;
-		case CURVE_LINEAR:
-			break;
-		case CURVE_BRAKE:
-			break;
-		case CURVE_SCAN:
-			break;
-		}
-
 	// remove the curve from the queue
 	container.pop();
 }
@@ -183,11 +169,11 @@ void TrajectoryCtrl::tick() {
 void TrajectoryCtrl::addFastMove(uint8_t move) {
 	//debug printing
 	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
-		print("FF %d", move);
+		print("FF %d ", move);
 	else if (move == MF_LEFT)
-		print("FL ");
+		print("FL %d" , move);
 	else if (move == MF_RIGHT)
-		print("FR ");
+		print("FR %d ", move);
 	//points defining bezier curve
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 
@@ -203,6 +189,7 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			D2Y = D1Y;
 			//lastOrientation = UP;
 			lastCellY += move + 1 - MF_FORWARD;
+			//print("LastCellY %d ", lastCellY);
 		}
 
 		else if (move == MS_RIGHT) {

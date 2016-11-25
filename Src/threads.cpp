@@ -70,7 +70,7 @@ void createThreads(void) {
 	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0, 128);
 	LiPoMonitorTaskHandle = osThreadCreate(osThread(LiPoMonitorTask), NULL);
 	// Maze algorithm task
-	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 5120);
+	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 8192);//5120
 	MazeAlgorithmTaskHandle = osThreadCreate(osThread(MazeAlgorithmTask), NULL);
 }
 

@@ -553,37 +553,39 @@ void Maze::szybko() {
 	uint8_t x;
 	uint8_t y;
 
-	Trajectory.addSearchMove(M_START);
+	Trajectory.addFastMove(M_START);
 	print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
 		if (sciezka[x] == MS_FORWARD){
-//			dlpr = 1;
-//			for (y = x; y<16; y++){
-//				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
-//					dlpr++;
-//				}
-//				else{
-//					break;
-//				}
-//			}
-//			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
-//			print("ruch prosto o %u \r\n", dlpr);
-		Trajectory.addSearchMove(MS_FORWARD);
-		print("prosto\r\n");
-		x++;
+			dlpr = 1;
+			for (y = x; y<16; y++){
+				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
+					dlpr++;
+					x++;
+				}
+				else{
+					break;
+				}
+			}
+			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
+			print("ruch prosto o %u \r\n", dlpr);
+			//Trajectory.addSearchMove(MS_FORWARD);
+			//print("prosto\r\n");
+			//x++;
+			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
-			//Trajectory.addFastMove(MF_LEFT);
-			Trajectory.addSearchMove(MS_LEFT);
+			Trajectory.addFastMove(MF_LEFT);
+			//Trajectory.addSearchMove(MS_LEFT);
 			print("w lewo\r\n");
-			x++;
+			//x++;
 		}
 		else if (sciezka[x] == MS_RIGHT) {
-			//Trajectory.addFastMove(MF_RIGHT);
-			Trajectory.addSearchMove(MS_RIGHT);
+			Trajectory.addFastMove(MF_RIGHT);
+			//Trajectory.addSearchMove(MS_RIGHT);
 			print("w prawo\r\n");
-			x++;
+			//x++;
 		}
 		else{
 			Trajectory.addSearchMove(M_FINISH);
@@ -591,8 +593,8 @@ void Maze::szybko() {
 			return;
 		}
 
-		x = x + dlpr - 1;
-		dlpr = 0;
+//		x = x + dlpr - 1;
+//		dlpr = 0;
 	}
 }
 
