@@ -66,6 +66,7 @@ void TrajectoryCtrl::loadCurve() {
 
 	// load speed and type of the curve as well
 	//get parameters
+
 	type = container.front().type;
 	speed1 = container.front().speed1;
 	speed2 = container.front().speed2;
@@ -127,6 +128,12 @@ void TrajectoryCtrl::tick() {
 	float targetHeading = atan2(dy, dx);
 	float errHeading = clampAngle(targetHeading - Motion.heading);
 
+	//profiler
+
+	float velLin=0.0;
+	//profiler
+
+
 	// Current target captured, set the next one if available
 	if (dist < dist_accuracy) {
 		step += 0.01; // increment the step variable
@@ -170,21 +177,41 @@ void TrajectoryCtrl::tick() {
 					* (dist > dist_accuracy));
 
 	// Calculate and apply linear velocity
-	float scale = (1.0); // lower velocity if errHeading is significant
-	float velLin = Motion.velLinMax * scale * (!must_stop); // stop if turning in place
+
+	if (type == CURVE_CONSTANT) {
+		velLin = speed_curve_fastrun; // stop if turning in place
+	}
+	else if (type == CURVE_BRAKE) {
+		if(step<=0.7)velLin=Motion.velLinMax;
+		else velLin = speed_curve_fastrun;
+
+	}
+	else if(type==CURVE_SEARCHRUN){
+		velLin =speed_searchrun ;
+	}
+	else{
+		velLin=speed_searchrun;
+	}
+
+	velLin=velLin*(!must_stop); // stop if turning in place
 	Motion.setVelLin(((velLin > velLinMin) ? velLin : velLinMin));
 }
 
 void TrajectoryCtrl::addFastMove(uint8_t move) {
+
 	//debug printing
-	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
+	/*if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
 		print("FF %d ", move);
 	else if (move == MF_LEFT)
 		print("FL %d", move);
 	else if (move == MF_RIGHT)
-		print("FR %d ", move);
+		print("FR %d ", move);*/
 	//points defining bezier curve
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
+
+	uint8_t type = CURVE_CONSTANT;
+	uint8_t speed1 = 255;
+	uint8_t speed2 = 255;
 
 	if (lastOrientation == UP) {
 		if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
@@ -197,6 +224,9 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			D2X = D1X;
 			D2Y = D1Y;
 			//lastOrientation = UP;
+			speed1=1;
+			speed2=(move+1-MF_FORWARD);
+			type = CURVE_BRAKE;
 			lastCellY += move + 1 - MF_FORWARD;
 			//print("LastCellY %d ", lastCellY);
 		}
@@ -210,6 +240,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X - SCAN_OUT;
 			D2Y = P2Y;
+			speed1=1;
+			speed2=1;
 			lastOrientation = RIGHT;
 			lastCellY++;
 		} else if (move == MF_LEFT) {
@@ -221,13 +253,13 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X + SCAN_OUT;
 			D2Y = P2Y;
+			speed1=1;
+			speed2=1;
 			lastOrientation = LEFT;
 			lastCellY++;
 		}
 
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	}
@@ -245,6 +277,9 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = RIGHT;
 			lastCellX += move + 1 - MF_FORWARD;
 
@@ -257,6 +292,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y + SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = DOWN;
 			lastCellX++;
 		} else if (move == MF_LEFT) {
@@ -268,12 +305,12 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y - SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = UP;
 			lastCellX++;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	}
@@ -289,6 +326,9 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = LEFT;
 			lastCellX -= (move + 1 - MF_FORWARD);
 
@@ -301,6 +341,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y - SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = UP;
 			lastCellX--;
 		} else if (move == MF_LEFT) {
@@ -312,12 +354,11 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y + SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = DOWN;
 			lastCellX--;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	} else if (lastOrientation == DOWN) {
@@ -330,6 +371,9 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - (move + 1 - MF_FORWARD) * CELL_FULL;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = DOWN;
 			lastCellY -= (move + 1 - MF_FORWARD);
 		} else if (move == MF_RIGHT) {
@@ -341,6 +385,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X + SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = LEFT;
 			lastCellY--;
 		} else if (move == MF_LEFT) {
@@ -352,12 +398,12 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X - SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = RIGHT;
 			lastCellY--;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	}}
@@ -781,3 +827,4 @@ void *malloc(size_t size) {
 void free(void *ptr) {
 	vPortFree(ptr);
 }
+

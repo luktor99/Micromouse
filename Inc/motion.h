@@ -12,7 +12,8 @@
 
 // Robot speed settings (m/s)
 const float speed_searchrun=0.3; // search run speed
-const float speed_fastrun=0.4; // first search run speed
+const float speed_fastrun=1.5; // first search run speed
+const float speed_curve_fastrun=0.4;
 const float speed_fastrun_step=0.1; // speed increment after each speed run
 
 // Robot dimensions

@@ -53,6 +53,8 @@ struct BezierCurve {
 	uint8_t type; // for one of the CURVE_TYPES
 	uint8_t speed1; // speed scale at the first point
 	uint8_t speed2; // speed scale at the last point
+
+
 };
 
 class TrajectoryCtrl {

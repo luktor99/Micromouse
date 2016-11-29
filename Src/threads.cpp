@@ -501,21 +501,31 @@ void StartMazeAlgorithmTask(void const * argument) {
 	speed_dmps = 3;
 
 	/*debugging fast fast moves functions*/
+//	Motion.velLinMax = speed_fastrun;
 //	Motion.resetLocalisation();
 //	Trajectory.reset();
 //	Trajectory.updateTarget(0.0);
 //	Trajectory.addSearchMove(M_START);
+//	Trajectory.addFastMove(MF_FORWARD + 5);
+//	Trajectory.addFastMove(MF_RIGHT);
+//	Trajectory.addFastMove(MF_FORWARD);
+//	Trajectory.addFastMove(MF_RIGHT);
+//	Trajectory.addFastMove(MF_FORWARD + 5);
+//	Trajectory.addFastMove(MF_RIGHT);
 //	Trajectory.addFastMove(MF_FORWARD);
 //	Trajectory.addFastMove(MF_RIGHT);
 //
 //	Trajectory.loadCurve();
 //	Trajectory.updateTarget(0.0);
+//
 //	for(;;)
 //	{
 //	osSignalWait(SIGNAL_SCAN, osWaitForever);
 //	Motion.disable();
 //	}
+
 	/*end of debugging functions*/
+
 	// SEARCH RUNS LOOP
 	bool fastrun = false;
 	for(;;) {
