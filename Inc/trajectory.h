@@ -14,7 +14,7 @@
 // Trajectory follow constants
 const float velLinMin=0.0; // Min linear velocity (to prevent the robot from going backwards in certain conditions)
 const float velRotMax=30.0; // Max rotational velocity
-const float dist_accuracy=0.020; // accuracy of position following (20mm)
+const float dist_accuracy=0.015; // accuracy of position following (20mm)
 
 // shape coefficients of the bezier curve trajectories:
 const uint16_t SCAN_IN = 45; // start of a turn (SEARCH RUN)
@@ -98,6 +98,12 @@ public:
 	uint8_t lastOrientation; // orientation of the robot after arriving to the end cell
 
 	float finish_x, finish_y;
+
+	//profiler variables
+	float velLinFwMax;
+	int breakingStepsNmb;
+	float distanceToTarget;
+	uint16_t PfX, PfY;
 };
 
 extern TrajectoryCtrl Trajectory;

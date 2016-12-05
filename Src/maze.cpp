@@ -553,7 +553,7 @@ void Maze::szybko() {
 	uint8_t x;
 	uint8_t y;
 
-	Trajectory.addSearchMove(M_START);
+	Trajectory.addFastMove(M_START);
 	print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
@@ -588,7 +588,7 @@ void Maze::szybko() {
 			//x++;
 		}
 		else{
-			Trajectory.addSearchMove(M_FINISH);
+			Trajectory.addFastMove(M_FINISH);
 			print("ruch stop\r\n");
 			return;
 		}
