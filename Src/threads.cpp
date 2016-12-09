@@ -496,8 +496,8 @@ void StartLiPoMonitorTask(void const * argument) {
 }
 
 void StartMazeAlgorithmTask(void const * argument) {
-	// Set the default (search run) speed
-	//Motion.velLinMax = speed_searchrun;
+	//  the default (search run) speed
+	Motion.velLinMax = speed_searchrun;
 	speed_dmps = 3;
 
 	/*debugging fast fast moves functions*/
@@ -511,12 +511,11 @@ void StartMazeAlgorithmTask(void const * argument) {
 //	Trajectory.addFastMove(MF_RIGHT);
 //	Trajectory.loadCurve();
 //	Trajectory.updateTarget(0.0);
-
-	for(;;)
-	{
-	osSignalWait(SIGNAL_SCAN, osWaitForever);
-	Motion.disable();
-	}
+//	for(;;)
+//	{
+//	osSignalWait(SIGNAL_SCAN, osWaitForever);
+//	Motion.disable();
+//	}
 
 	/*end of debugging functions*/
 

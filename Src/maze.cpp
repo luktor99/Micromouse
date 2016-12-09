@@ -548,18 +548,19 @@ void Maze::oblicz_ruch()
 	}
 }
 
-void Maze::szybko() {
+void Maze::szybko() { // bez skosow
 	uint8_t dlpr = 0;
 	uint8_t x;
 	uint8_t y;
 
 	Trajectory.addFastMove(M_START);
+//	cout << endl << "----------------------" << endl << "ruch start" << endl;
 	print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
 		if (sciezka[x] == MS_FORWARD){
 			dlpr = 1;
-			for (y = x; y<16; y++){
+			for (y = x; y<100; y++){
 				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
 					dlpr++;
 					x++;
@@ -569,32 +570,26 @@ void Maze::szybko() {
 				}
 			}
 			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
+//			cout << "ruch prosto o " << dlpr << endl;
 			print("ruch prosto o %u \r\n", dlpr);
-			//Trajectory.addSearchMove(MS_FORWARD);
-			//print("prosto\r\n");
-			//x++;
 			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
 			Trajectory.addFastMove(MF_LEFT);
-			//Trajectory.addSearchMove(MS_LEFT);
+//			cout << "w lewo" << endl;
 			print("w lewo\r\n");
-			//x++;
 		}
 		else if (sciezka[x] == MS_RIGHT) {
 			Trajectory.addFastMove(MF_RIGHT);
-			//Trajectory.addSearchMove(MS_RIGHT);
+//			cout << "w prawo" << endl;
 			print("w prawo\r\n");
-			//x++;
 		}
 		else{
 			Trajectory.addFastMove(M_FINISH);
+//			cout << "ruch stop" << endl;
 			print("ruch stop\r\n");
 			return;
 		}
-
-//		x = x + dlpr - 1;
-//		dlpr = 0;
 	}
 }
 

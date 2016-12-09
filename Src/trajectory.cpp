@@ -190,7 +190,7 @@ void TrajectoryCtrl::tick() {
 						+ ((float) PfY - 1000.0 * Motion.posY)
 								* ((float) PfY - 1000.0 * Motion.posY));
 		if (speed2 > 3) {
-			if (distanceToTarget >= speed2 * CELL_FULL)
+			if (distanceToTarget >= 1.5* CELL_FULL)
 				velLin = Motion.velLinMax;
 			else
 				velLin = speed_curve_fastrun;
@@ -201,10 +201,6 @@ void TrajectoryCtrl::tick() {
 				velLin = speed_curve_fastrun;
 		}
 
-		if (distanceToTarget >= 0.5 * speed2 * CELL_FULL)
-			velLin = Motion.velLinMax;
-		else
-			velLin = speed_curve_fastrun;
 
 	} else if (type == CURVE_SEARCHRUN) {
 		velLin = Motion.velLinMax;
