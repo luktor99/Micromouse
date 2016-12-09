@@ -506,9 +506,8 @@ void StartMazeAlgorithmTask(void const * argument) {
 //	Trajectory.reset();
 //	Trajectory.updateTarget(0.0);
 //	Trajectory.addFastMove(M_START);
-//	Trajectory.addFastMove(MF_FORWARD+8);
-//	Trajectory.addFastMove(MF_RIGHT);
-//	Trajectory.addFastMove(MF_RIGHT);
+//	Trajectory.addFastMove(MF_CUTRIGHT+1);
+//	Trajectory.addFastMove(MF_CUTLEFT+1);
 //	Trajectory.loadCurve();
 //	Trajectory.updateTarget(0.0);
 //	for(;;)

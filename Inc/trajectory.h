@@ -24,11 +24,12 @@ const uint16_t SCAN_OUT = 90; // end of a turn (SEARCH RUN)
 const uint16_t CELL_QUARTER = 45;
 const uint16_t CELL_HALF = 90;
 const uint16_t CELL_FULL = 180;
-
+//moves constants
+const float CUT_SCALE=0.5;
 enum moves {
 	MS_FORWARD, MS_LEFT, MS_RIGHT, MS_BACK, MS_BACKLEFT, MS_BACKRIGHT, // search run moves
 	M_START, M_FINISH, // START gets from the border to the center of a cell, FINISH does the opposite
-	MF_FORWARD=8, MF_LEFT=22, MF_RIGHT
+	MF_FORWARD=8, MF_LEFT=22, MF_RIGHT,MF_CUTRIGHT=24,MF_CUTLEFT=38
 };
 
 enum CURVE_TYPES {
