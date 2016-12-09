@@ -66,9 +66,13 @@ void TrajectoryCtrl::loadCurve() {
 
 	// load speed and type of the curve as well
 	//get parameters
+
 	type = container.front().type;
 	speed1 = container.front().speed1;
 	speed2 = container.front().speed2;
+	PfX = container.front().P2X;
+	PfY = container.front().P2Y;
+
 	// remove the curve from the queue
 	container.pop();
 }
@@ -127,6 +131,11 @@ void TrajectoryCtrl::tick() {
 	float targetHeading = atan2(dy, dx);
 	float errHeading = clampAngle(targetHeading - Motion.heading);
 
+	//profiler
+
+	float velLin = 0.0;
+	//profiler
+
 	// Current target captured, set the next one if available
 	if (dist < dist_accuracy) {
 		step += 0.01; // increment the step variable
@@ -170,21 +179,55 @@ void TrajectoryCtrl::tick() {
 					* (dist > dist_accuracy));
 
 	// Calculate and apply linear velocity
-	float scale = (1.0); // lower velocity if errHeading is significant
-	float velLin = Motion.velLinMax * scale * (!must_stop); // stop if turning in place
+
+	if (type == CURVE_CONSTANT) {
+		velLin = speed_curve_fastrun;
+
+	} else if (type == CURVE_BRAKE) {
+		distanceToTarget = sqrt(
+				((float) PfX - 1000.0 * Motion.posX)
+						* ((float) PfX - 1000.0 * Motion.posX)
+						+ ((float) PfY - 1000.0 * Motion.posY)
+								* ((float) PfY - 1000.0 * Motion.posY));
+		if (speed2 > 3) {
+			if (distanceToTarget >= 1.5 * CELL_FULL)
+				velLin = Motion.velLinMax;
+			else
+				velLin = speed_curve_fastrun;
+		} else {
+			if (distanceToTarget >= 0.5 * speed2 * CELL_FULL)
+				velLin = Motion.velLinMax;
+			else
+				velLin = speed_curve_fastrun;
+		}
+
+	} else if (type == CURVE_SEARCHRUN) {
+		velLin = Motion.velLinMax;
+	} else {
+		print("Curve type err\r\n");
+		for (;;)
+			;
+	}
+
+	velLin = velLin * (!must_stop); // stop if turning in place
 	Motion.setVelLin(((velLin > velLinMin) ? velLin : velLinMin));
 }
 
 void TrajectoryCtrl::addFastMove(uint8_t move) {
+
 	//debug printing
 	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
-		print("FF %d ", move);
+		print("FF %d\r\n ", move);
 	else if (move == MF_LEFT)
-		print("FL %d", move);
+		print("FL %d\r\n", move);
 	else if (move == MF_RIGHT)
-		print("FR %d ", move);
+		print("FR %d \r\n", move);
 	//points defining bezier curve
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
+
+	uint8_t type = CURVE_CONSTANT;
+	uint8_t speed1 = 255;
+	uint8_t speed2 = 255;
 
 	if (lastOrientation == UP) {
 		if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13)) {
@@ -197,8 +240,43 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			D2X = D1X;
 			D2Y = D1Y;
 			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			lastCellY += move + 1 - MF_FORWARD;
 			//print("LastCellY %d ", lastCellY);
+		}
+
+		else if ((move >= MF_CUTRIGHT) && (move <= MF_CUTRIGHT + 13)) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CUT_SCALE * CELL_HALF;
+			P2X = P1X + (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			P2Y = P1Y + (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			D2X = P2X;
+			D2Y = P2Y - CUT_SCALE * CELL_HALF;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellY += move + 1 - MF_CUTRIGHT;
+			lastCellX += move + 1 - MF_CUTRIGHT;
+
+		} else if ((move >= MF_CUTLEFT) && (move <= MF_CUTLEFT + 13)) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CUT_SCALE * CELL_HALF;
+			P2X = P1X - (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			P2Y = P1Y + (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			D2X = P2X;
+			D2Y = P2Y - CUT_SCALE * CELL_HALF;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellX -= (move + 1 - MF_CUTLEFT);
+			lastCellY += move + 1 - MF_CUTLEFT;
+
 		}
 
 		else if (move == MF_RIGHT) {
@@ -210,6 +288,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X - SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = RIGHT;
 			lastCellY++;
 		} else if (move == MF_LEFT) {
@@ -221,13 +301,33 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X + SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = LEFT;
+			lastCellY++;
+		} else if (move == M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X;
+			D1Y = P1Y + CELL_QUARTER;
+			P2X = P1X;
+			P2Y = P1Y + CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
+		} else if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y + CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
 			lastCellY++;
 		}
 
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	}
@@ -245,10 +345,46 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = RIGHT;
 			lastCellX += move + 1 - MF_FORWARD;
 
-		} else if (move == MF_RIGHT) {
+		} else if ((move >= MF_CUTRIGHT) && (move <= MF_CUTRIGHT + 13)) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CUT_SCALE * CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			P2Y = P1Y - (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			D2X = P2X - CUT_SCALE * CELL_HALF;
+			D2Y = P2Y;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellY -= move + 1 - MF_CUTRIGHT;
+			lastCellX += move + 1 - MF_CUTRIGHT;
+
+		} else if ((move >= MF_CUTLEFT) && (move <= MF_CUTLEFT + 13)) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CUT_SCALE * CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			P2Y = P1Y + (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			D2X = P2X - CUT_SCALE * CELL_HALF;
+			;
+			D2Y = P2Y;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellX += (move + 1 - MF_CUTLEFT);
+			lastCellY += move + 1 - MF_CUTLEFT;
+
+		}
+
+		else if (move == MF_RIGHT) {
 			P1X = cellToPos(lastCellX) + CELL_HALF;
 			P1Y = cellToPos(lastCellY);
 			D1X = P1X + SCAN_IN;
@@ -257,6 +393,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y + SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = DOWN;
 			lastCellX++;
 		} else if (move == MF_LEFT) {
@@ -268,12 +406,23 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y - SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = UP;
 			lastCellX++;
+		} else if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+			lastCellX++;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	}
@@ -289,8 +438,42 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = LEFT;
 			lastCellX -= (move + 1 - MF_FORWARD);
+
+		} else if ((move >= MF_CUTRIGHT) && (move <= MF_CUTRIGHT + 13)) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CUT_SCALE * CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			P2Y = P1Y + (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			D2X = P2X + CUT_SCALE * CELL_HALF;
+			D2Y = P2Y;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellX -= move + 1 - MF_CUTRIGHT;
+			lastCellY += move + 1 - MF_CUTRIGHT;
+
+
+		} else if ((move >= MF_CUTLEFT) && (move <= MF_CUTLEFT + 13)) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CUT_SCALE * CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			P2Y = P1Y - (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			D2X = P2X + CUT_SCALE * CELL_HALF;
+			D2Y = P2Y;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellX -= (move + 1 - MF_CUTLEFT);
+			lastCellY -= move + 1 - MF_CUTLEFT;
 
 		} else if (move == MF_RIGHT) {
 			P1X = cellToPos(lastCellX) - CELL_HALF;
@@ -301,6 +484,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y + CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y - SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = UP;
 			lastCellX--;
 		} else if (move == MF_LEFT) {
@@ -312,12 +497,24 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X;
 			D2Y = P2Y + SCAN_OUT;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = DOWN;
 			lastCellX--;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
+		else if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = LEFT;
+			lastCellX--;
+		}
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
 	} else if (lastOrientation == DOWN) {
@@ -330,9 +527,44 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - (move + 1 - MF_FORWARD) * CELL_FULL;
 			D2X = D1X;
 			D2Y = D1Y;
+			speed1 = 1;
+			speed2 = (move + 1 - MF_FORWARD);
+			type = CURVE_BRAKE;
 			//lastOrientation = DOWN;
 			lastCellY -= (move + 1 - MF_FORWARD);
-		} else if (move == MF_RIGHT) {
+		} else if ((move >= MF_CUTRIGHT) && (move <= MF_CUTRIGHT + 13)) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CUT_SCALE * CELL_HALF;
+			P2X = P1X - (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			P2Y = P1Y - (move + 1 - MF_CUTRIGHT) * CELL_FULL;
+			D2X = P2X;
+			D2Y = P2Y + CUT_SCALE * CELL_HALF;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellY -= move + 1 - MF_CUTRIGHT;
+			lastCellX -= move + 1 - MF_CUTRIGHT;
+
+		} else if ((move >= MF_CUTLEFT) && (move <= MF_CUTLEFT + 13)) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CUT_SCALE * CELL_HALF;
+			P2X = P1X + (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			P2Y = P1Y - (move + 1 - MF_CUTLEFT) * CELL_FULL;
+			D2X = P2X;
+			D2Y = P2Y + CUT_SCALE * CELL_HALF;
+			//lastOrientation = UP;
+			speed1 = 1;
+			speed2 = 1;
+			lastCellX += (move + 1 - MF_CUTLEFT);
+			lastCellY -= move + 1 - MF_CUTLEFT;
+
+		}
+
+		else if (move == MF_RIGHT) {
 			P1X = cellToPos(lastCellX);
 			P1Y = cellToPos(lastCellY) - CELL_HALF;
 			D1X = P1X;
@@ -341,6 +573,8 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X + SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = LEFT;
 			lastCellY--;
 		} else if (move == MF_LEFT) {
@@ -352,405 +586,414 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 			P2Y = P1Y - CELL_HALF;
 			D2X = P2X - SCAN_OUT;
 			D2Y = P2Y;
+			speed1 = 1;
+			speed2 = 1;
 			lastOrientation = RIGHT;
 			lastCellY--;
+		} else if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y - CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = DOWN;
+			lastCellY--;
 		}
-		uint8_t type = CURVE_CONSTANT;
-		uint8_t speed1 = 255;
-		uint8_t speed2 = 255;
+
 		Trajectory.pushCurveFastRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y,
 				type, speed1, speed2);
-	}}
+	}
+}
 
-	void TrajectoryCtrl::addSearchMove(uint8_t move) {
-		// debug printing:
-		if (move == MS_FORWARD)
+void TrajectoryCtrl::addSearchMove(uint8_t move) {
+	// debug printing:
+	if (move == MS_FORWARD)
 		print("F ");
-		else if (move == MS_LEFT)
+	else if (move == MS_LEFT)
 		print("L ");
-		else if (move == MS_RIGHT)
+	else if (move == MS_RIGHT)
 		print("R ");
-		else if (move == MS_BACK)
+	else if (move == MS_BACK)
 		print("B ");
-		else if (move == MS_BACKLEFT)
+	else if (move == MS_BACKLEFT)
 		print("BL ");
-		else if (move == MS_BACKRIGHT)
+	else if (move == MS_BACKRIGHT)
 		print("BR ");
 
-		uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
+	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 
-		if (lastOrientation == UP) {
-			if (move == M_FINISH) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y + CELL_HALF;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = UP;
-				lastCellY++;
-			}
-
-			if (move == MS_FORWARD) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y + CELL_FULL;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = UP;
-				lastCellY++;
-			} else if (move == MS_RIGHT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + SCAN_IN;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X - SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = RIGHT;
-				lastCellY++;
-			} else if (move == MS_LEFT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + SCAN_IN;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X + SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = LEFT;
-				lastCellY++;
-			} else if (move == MS_BACK) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y - CELL_FULL;
-				D2X = D1X;
-				D2Y = D1Y;
-				lastOrientation = DOWN;
-			} else if (move == MS_BACKRIGHT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - SCAN_IN;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X - SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = RIGHT;
-			} else if (move == MS_BACKLEFT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) + CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - SCAN_IN;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X + SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = LEFT;
-			} else if (move == M_START) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X;
-				D1Y = P1Y + CELL_QUARTER;
-				P2X = P1X;
-				P2Y = P1Y + CELL_HALF;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = UP;
-			}
-
-			Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
-		} else if (lastOrientation == RIGHT) {
-			if (move == M_FINISH) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = RIGHT;
-				lastCellX++;
-			}
-
-			if (move == MS_FORWARD) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X + CELL_FULL;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = RIGHT;
-				lastCellX++;
-			} else if (move == MS_RIGHT) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y + SCAN_OUT;
-				lastOrientation = DOWN;
-				lastCellX++;
-			} else if (move == MS_LEFT) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y - SCAN_OUT;
-				lastOrientation = UP;
-				lastCellX++;
-			} else if (move == MS_BACK) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X - CELL_FULL;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				lastOrientation = LEFT;
-			} else if (move == MS_BACKRIGHT) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y + SCAN_OUT;
-				lastOrientation = DOWN;
-			} else if (move == MS_BACKLEFT) {
-				P1X = cellToPos(lastCellX) + CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y - SCAN_OUT;
-				lastOrientation = UP;
-			} else if (move == M_START) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + CELL_QUARTER;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = RIGHT;
-			}
-
-			Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
-		} else if (lastOrientation == LEFT) {
-			if (move == M_FINISH) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = LEFT;
-				lastCellX--;
-			}
-
-			if (move == MS_FORWARD) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X - CELL_FULL;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = LEFT;
-				lastCellX--;
-			} else if (move == MS_RIGHT) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y - SCAN_OUT;
-				lastOrientation = UP;
-				lastCellX--;
-			} else if (move == MS_LEFT) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y + SCAN_OUT;
-				lastOrientation = DOWN;
-				lastCellX--;
-			} else if (move == MS_BACK) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + CELL_HALF;
-				D1Y = P1Y;
-				P2X = P1X + CELL_FULL;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				lastOrientation = RIGHT;
-			} else if (move == MS_BACKRIGHT) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y - SCAN_OUT;
-				lastOrientation = UP;
-			} else if (move == MS_BACKLEFT) {
-				P1X = cellToPos(lastCellX) - CELL_HALF;
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X + SCAN_IN;
-				D1Y = P1Y;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X;
-				D2Y = P2Y + SCAN_OUT;
-				lastOrientation = DOWN;
-			} else if (move == M_START) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X - CELL_QUARTER;
-				D1Y = P1Y;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = LEFT;
-			}
-
-			Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
-		} else if (lastOrientation == DOWN) {
-
-			if (move == M_FINISH) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y - CELL_HALF;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = DOWN;
-				lastCellY--;
-			}
-
-			if (move == MS_FORWARD) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y - CELL_FULL;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = DOWN;
-				lastCellY--;
-			} else if (move == MS_RIGHT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - SCAN_IN;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X + SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = LEFT;
-				lastCellY--;
-			} else if (move == MS_LEFT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y - SCAN_IN;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y - CELL_HALF;
-				D2X = P2X - SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = RIGHT;
-				lastCellY--;
-			} else if (move == MS_BACK) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + CELL_HALF;
-				P2X = P1X;
-				P2Y = P1Y + CELL_FULL;
-				D2X = D1X;
-				D2Y = D1Y;
-				lastOrientation = UP;
-			} else if (move == MS_BACKRIGHT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + SCAN_IN;
-				P2X = P1X - CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X + SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = LEFT;
-			} else if (move == MS_BACKLEFT) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY) - CELL_HALF;
-				D1X = P1X;
-				D1Y = P1Y + SCAN_IN;
-				P2X = P1X + CELL_HALF;
-				P2Y = P1Y + CELL_HALF;
-				D2X = P2X - SCAN_OUT;
-				D2Y = P2Y;
-				lastOrientation = RIGHT;
-			} else if (move == M_START) {
-				P1X = cellToPos(lastCellX);
-				P1Y = cellToPos(lastCellY);
-				D1X = P1X;
-				D1Y = P1Y - CELL_QUARTER;
-				P2X = P1X;
-				P2Y = P1Y - CELL_HALF;
-				D2X = D1X;
-				D2Y = D1Y;
-				//lastOrientation = DOWN;
-			}
-
-			Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
+	if (lastOrientation == UP) {
+		if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y + CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
+			lastCellY++;
 		}
-	}
 
-	uint16_t
-	TrajectoryCtrl::count()
-	{
-		return container.size();
-	}
+		if (move == MS_FORWARD) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y + CELL_FULL;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
+			lastCellY++;
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+			lastCellY++;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+			lastCellY++;
+		} else if (move == MS_BACK) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y - CELL_FULL;
+			D2X = D1X;
+			D2Y = D1Y;
+			lastOrientation = DOWN;
+		} else if (move == MS_BACKRIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+		} else if (move == MS_BACKLEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) + CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+		} else if (move == M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X;
+			D1Y = P1Y + CELL_QUARTER;
+			P2X = P1X;
+			P2Y = P1Y + CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = UP;
+		}
 
-	uint16_t
-TrajectoryCtrl::cellToPos(uint16_t cell) {
+		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
+	} else if (lastOrientation == RIGHT) {
+		if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+			lastCellX++;
+		}
+
+		if (move == MS_FORWARD) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + CELL_FULL;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+			lastCellX++;
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y + SCAN_OUT;
+			lastOrientation = DOWN;
+			lastCellX++;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y - SCAN_OUT;
+			lastOrientation = UP;
+			lastCellX++;
+		} else if (move == MS_BACK) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - CELL_FULL;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			lastOrientation = LEFT;
+		} else if (move == MS_BACKRIGHT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y + SCAN_OUT;
+			lastOrientation = DOWN;
+		} else if (move == MS_BACKLEFT) {
+			P1X = cellToPos(lastCellX) + CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y - SCAN_OUT;
+			lastOrientation = UP;
+		} else if (move == M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_QUARTER;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = RIGHT;
+		}
+
+		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
+	} else if (lastOrientation == LEFT) {
+		if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = LEFT;
+			lastCellX--;
+		}
+
+		if (move == MS_FORWARD) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X - CELL_FULL;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = LEFT;
+			lastCellX--;
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y - SCAN_OUT;
+			lastOrientation = UP;
+			lastCellX--;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y + SCAN_OUT;
+			lastOrientation = DOWN;
+			lastCellX--;
+		} else if (move == MS_BACK) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + CELL_HALF;
+			D1Y = P1Y;
+			P2X = P1X + CELL_FULL;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			lastOrientation = RIGHT;
+		} else if (move == MS_BACKRIGHT) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y - SCAN_OUT;
+			lastOrientation = UP;
+		} else if (move == MS_BACKLEFT) {
+			P1X = cellToPos(lastCellX) - CELL_HALF;
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X + SCAN_IN;
+			D1Y = P1Y;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X;
+			D2Y = P2Y + SCAN_OUT;
+			lastOrientation = DOWN;
+		} else if (move == M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X - CELL_QUARTER;
+			D1Y = P1Y;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = LEFT;
+		}
+
+		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
+	} else if (lastOrientation == DOWN) {
+
+		if (move == M_FINISH) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y - CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = DOWN;
+			lastCellY--;
+		}
+
+		if (move == MS_FORWARD) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y - CELL_FULL;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = DOWN;
+			lastCellY--;
+		} else if (move == MS_RIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+			lastCellY--;
+		} else if (move == MS_LEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y - SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y - CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+			lastCellY--;
+		} else if (move == MS_BACK) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + CELL_HALF;
+			P2X = P1X;
+			P2Y = P1Y + CELL_FULL;
+			D2X = D1X;
+			D2Y = D1Y;
+			lastOrientation = UP;
+		} else if (move == MS_BACKRIGHT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X - CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X + SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = LEFT;
+		} else if (move == MS_BACKLEFT) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY) - CELL_HALF;
+			D1X = P1X;
+			D1Y = P1Y + SCAN_IN;
+			P2X = P1X + CELL_HALF;
+			P2Y = P1Y + CELL_HALF;
+			D2X = P2X - SCAN_OUT;
+			D2Y = P2Y;
+			lastOrientation = RIGHT;
+		} else if (move == M_START) {
+			P1X = cellToPos(lastCellX);
+			P1Y = cellToPos(lastCellY);
+			D1X = P1X;
+			D1Y = P1Y - CELL_QUARTER;
+			P2X = P1X;
+			P2Y = P1Y - CELL_HALF;
+			D2X = D1X;
+			D2Y = D1Y;
+			//lastOrientation = DOWN;
+		}
+
+		Trajectory.pushCurveSearchRun(P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y);
+	}
+}
+
+uint16_t TrajectoryCtrl::count() {
+	return container.size();
+}
+
+uint16_t TrajectoryCtrl::cellToPos(uint16_t cell) {
 	return cell * 180 + 90;
 }
 
@@ -781,3 +1024,4 @@ void *malloc(size_t size) {
 void free(void *ptr) {
 	vPortFree(ptr);
 }
+

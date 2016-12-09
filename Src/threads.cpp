@@ -496,18 +496,18 @@ void StartLiPoMonitorTask(void const * argument) {
 }
 
 void StartMazeAlgorithmTask(void const * argument) {
-	// Set the default (search run) speed
+	//  the default (search run) speed
 	Motion.velLinMax = speed_searchrun;
 	speed_dmps = 3;
 
 	/*debugging fast fast moves functions*/
+//	Motion.velLinMax = 1;
 //	Motion.resetLocalisation();
 //	Trajectory.reset();
 //	Trajectory.updateTarget(0.0);
-//	Trajectory.addSearchMove(M_START);
-//	Trajectory.addFastMove(MF_FORWARD);
-//	Trajectory.addFastMove(MF_RIGHT);
-//
+//	Trajectory.addFastMove(M_START);
+//	Trajectory.addFastMove(MF_CUTRIGHT+1);
+//	Trajectory.addFastMove(MF_CUTLEFT+1);
 //	Trajectory.loadCurve();
 //	Trajectory.updateTarget(0.0);
 //	for(;;)
@@ -515,7 +515,9 @@ void StartMazeAlgorithmTask(void const * argument) {
 //	osSignalWait(SIGNAL_SCAN, osWaitForever);
 //	Motion.disable();
 //	}
+
 	/*end of debugging functions*/
+
 	// SEARCH RUNS LOOP
 	bool fastrun = false;
 	for(;;) {
@@ -922,7 +924,7 @@ void m_run(Menu *m, uint8_t parent) {
 			}
 
 			u8g_DrawStr(&u8g, 0, 38, "Press DOWN to start.");
-			u8g_DrawStr(&u8g, 0, 48, "Speed: LEFT(-) RIGHT{+)");
+			u8g_DrawStr(&u8g, 0, 48, "Speed: L(-) R{+)");
 		} while (u8g_NextPage(&u8g));
 
 		// check is button has been pressed

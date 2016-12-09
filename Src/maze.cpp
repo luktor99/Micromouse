@@ -548,18 +548,18 @@ void Maze::oblicz_ruch()
 	}
 }
 
-void Maze::szybko() {
+void Maze::szybko() { // bez skosow
 	uint8_t dlpr = 0;
 	uint8_t x;
 	uint8_t y;
 
-	Trajectory.addSearchMove(M_START);
+	Trajectory.addFastMove(M_START);
 	print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
 		if (sciezka[x] == MS_FORWARD){
 			dlpr = 1;
-			for (y = x; y<16; y++){
+			for (y = x; y<100; y++){
 				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
 					dlpr++;
 					x++;
@@ -570,33 +570,101 @@ void Maze::szybko() {
 			}
 			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
 			print("ruch prosto o %u \r\n", dlpr);
-			//Trajectory.addSearchMove(MS_FORWARD);
-			//print("prosto\r\n");
-			//x++;
 			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
 			Trajectory.addFastMove(MF_LEFT);
-			//Trajectory.addSearchMove(MS_LEFT);
 			print("w lewo\r\n");
-			//x++;
 		}
 		else if (sciezka[x] == MS_RIGHT) {
 			Trajectory.addFastMove(MF_RIGHT);
-			//Trajectory.addSearchMove(MS_RIGHT);
 			print("w prawo\r\n");
-			//x++;
 		}
 		else{
-			Trajectory.addSearchMove(M_FINISH);
+			Trajectory.addFastMove(M_FINISH);
 			print("ruch stop\r\n");
 			return;
 		}
-
-//		x = x + dlpr - 1;
-//		dlpr = 0;
 	}
 }
+
+//void Maze::szybko() { // z skosami
+//	uint8_t dlpr = 0;
+//	uint8_t dlsp = 0;
+//	uint8_t dlsl = 0;
+//	uint8_t x;
+//	uint8_t y;
+//
+//	Trajectory.addFastMove(M_START);
+//	print("ruch start\r\n");
+//
+//	for (x = 0; x<100; x++){
+//		if (sciezka[x] == MS_FORWARD){
+//			dlpr = 1;
+//			for (y = x; y<100; y++){
+//				if (sciezka[y + 1] == MS_FORWARD && sciezka[y] == MS_FORWARD) {
+//					dlpr++;
+//					x++;
+//				}
+//				else{
+//					break;
+//				}
+//			}
+//			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
+//			print("ruch prosto o %u \r\n", dlpr);
+//			dlpr = 0;
+//		}
+//		else if (sciezka[x] == MS_LEFT){
+//			if (sciezka[x + 1] == MS_RIGHT){
+//				dlsl = 1;
+//				for (y = x + 2; y < 200; y = y + 2){
+//					if (sciezka[y] == MS_LEFT && sciezka[y + 1] == MS_RIGHT) {
+//						dlsl++;
+//						x = x + 2;
+//					}
+//					else{
+//						break;
+//					}
+//				}
+//				Trajectory.addFastMove(MF_CUTLEFT + dlsl - 1);
+//				print("skos w lewo o %u \r\n", dlsl);
+//				dlsl = 0;
+//				x++; // poniewaz glowny for doda tylko 1 a musimy dodac 2
+//			}
+//			else{
+//				Trajectory.addFastMove(MF_LEFT);
+//				print("w lewo\r\n");
+//			}
+//		}
+//		else if (sciezka[x] == MS_RIGHT) {
+//			if (sciezka[x + 1] == MS_LEFT){
+//				dlsp = 1;
+//				for (y = x+2; y < 200; y=y+2){
+//					if (sciezka[y] == MS_RIGHT && sciezka[y + 1] == MS_LEFT) {
+//						dlsp++;
+//						x = x + 2;
+//					}
+//					else{
+//						break;
+//					}
+//				}
+//				Trajectory.addFastMove(MF_CUTRIGHT + dlsp - 1);
+//				print("skos w prawo o %u \r\n", dlsp);
+//				dlsp = 0;
+//				x++; // poniewaz glowny for doda tylko 1 a musimy dodac 2
+//			}
+//			else{
+//				Trajectory.addFastMove(MF_RIGHT);
+//				print("w prawo\r\n");
+//			}
+//		}
+//		else{
+//			Trajectory.addFastMove(M_FINISH);
+//			print("ruch stop\r\n");
+//			return;
+//		}
+//	}
+//}
 
 
 /*void Maze::zalewanie2()
