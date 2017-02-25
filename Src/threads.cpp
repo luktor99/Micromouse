@@ -46,37 +46,31 @@ void MX_I2C2_Init(void);
 
 void createThreads(void) {
 	// DEBUG
-	osThreadDef(defaultTask, StartDefaultTask, osPriorityAboveNormal, 0, 2560);
+	osThreadDef(defaultTask, StartDefaultTask, osPriorityAboveNormal, 0, 128); // 2560
 	defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 	// Buttons polling task
-	osThreadDef(buttonsPollingTask, StartButtonsPollingTask, osPriorityLow, 0,
-			128);
-	buttonsPollingTaskHandle = osThreadCreate(osThread(buttonsPollingTask),
-			NULL);
+	osThreadDef(buttonsPollingTask, StartButtonsPollingTask, osPriorityLow, 0, 128);
+	buttonsPollingTaskHandle = osThreadCreate(osThread(buttonsPollingTask),	NULL);
 	// Motors control task
-	osThreadDef(motionControlTask, StartMotionControlTask, osPriorityRealtime,
-			0, 2560);
+	osThreadDef(motionControlTask, StartMotionControlTask, osPriorityRealtime, 0, 512); // 2560
 	motionControlTaskHandle = osThreadCreate(osThread(motionControlTask), NULL);
 	// Range sensors reading task
-	osThreadDef(rangeSensorsTask, StartRangeSensorsTask, osPriorityRealtime, 0,
-			1280);
+	osThreadDef(rangeSensorsTask, StartRangeSensorsTask, osPriorityRealtime, 0,	256); // 1280
 	rangeSensorsTaskHandle = osThreadCreate(osThread(rangeSensorsTask), NULL);
 	// Command line interface task
-	osThreadDef(cliTask, StartCLITask, osPriorityRealtime, 0, 2560); // normally PriorityNormal, realtime for debugging
+	osThreadDef(cliTask, StartCLITask, osPriorityNormal, 0, 512); // 2560 normally PriorityNormal, realtime for debugging
 	cliTaskHandle = osThreadCreate(osThread(cliTask), NULL);
 	// Activity LEDs task
 	osThreadDef(activityLEDsTask, StartActivityLEDsTask, osPriorityLow, 0, 128);
 	activityLEDsTaskHandle = osThreadCreate(osThread(activityLEDsTask), NULL);
 	// OLED screen interface task
-	osThreadDef(OLEDTask, StartOLEDTask, osPriorityBelowNormal, 0, 2560);
+	osThreadDef(OLEDTask, StartOLEDTask, osPriorityBelowNormal, 0, 256); // 2560
 	OLEDTaskHandle = osThreadCreate(osThread(OLEDTask), NULL);
 	// LiPo voltage monitor task
-	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0,
-			128);
+	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0,	128);
 	LiPoMonitorTaskHandle = osThreadCreate(osThread(LiPoMonitorTask), NULL);
 	// Maze algorithm task
-	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0,
-			8192); //5120
+	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 8192); // 8192
 	MazeAlgorithmTaskHandle = osThreadCreate(osThread(MazeAlgorithmTask), NULL);
 }
 
@@ -220,6 +214,8 @@ void StartMotionControlTask(void const * argument) {
 
 		Trajectory.tick(); //
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
+
+		//print("%d\n\r", (int)(Motion.velLin*1000000));
 
 		uint16_t tick_length = TIMER - timer; // used to check if this loop takes more than 1ms (failure)
 		if (tick_length > 500)
@@ -903,8 +899,10 @@ void m_run(Menu *m, uint8_t parent) {
 			draw_statusbar();
 			if (scanning_step == 0)
 				u8g_DrawStr(&u8g, 0, 12, "*** SEARCH RUN ***");
-			else if (scanning_step == 1)
+			else if (scanning_step == 1) {
 				u8g_DrawStr(&u8g, 0, 12, "**** FAST RUN ****");
+				dist_accuracy = dist_accuracy_fast;
+			}
 			if (speed_dmps == 3) {
 				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s");
 			} else if (speed_dmps == 4) {
@@ -919,8 +917,18 @@ void m_run(Menu *m, uint8_t parent) {
 				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s");
 			} else if (speed_dmps == 9) {
 				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s");
+			} else if (speed_dmps == 10) {
+				u8g_DrawStr(&u8g, 0, 24, "1.0 m/s");
+			} else if (speed_dmps == 11) {
+				u8g_DrawStr(&u8g, 0, 24, "1.1 m/s");
+			} else if (speed_dmps == 12) {
+				u8g_DrawStr(&u8g, 0, 24, "1.2 m/s");
+			} else if (speed_dmps == 13) {
+				u8g_DrawStr(&u8g, 0, 24, "1.3 m/s");
+			} else if (speed_dmps == 14) {
+				u8g_DrawStr(&u8g, 0, 24, "1.4 m/s");
 			} else {
-				u8g_DrawStr(&u8g, 0, 24, ">=1.0 m/s");
+				u8g_DrawStr(&u8g, 0, 24, ">1.4 m/s");
 			}
 
 			u8g_DrawStr(&u8g, 0, 38, "Press DOWN to start.");

@@ -24,7 +24,7 @@ const float vel_coeff=0.00178499583; // 2pi/encoder_ticks_per_revolution = 2pi/3
 
 // Speed & Acc
 //const float def_vmax=10.0;
-const float def_acc=0.001; // in m/s^2, 0.001 is fine
+const float def_acc=1.1; // in m/s^2, 0.001 is fine
 
 // PID settings
 const float def_kP=350.0; //350.0;
@@ -40,7 +40,7 @@ const uint16_t gyro_avg_count = 1000; // 1s
 
 // Localisation correction coefficients
 const float coeff_heading = 0.001; // 0.002
-const float coeff_pos = 0.003; // 0.005
+const float coeff_pos = 0.012; // 0.003
 
 // Wall detection threshold for front and side wall sensors
 const uint8_t wall_thresh_front = 187; // 18.7mm

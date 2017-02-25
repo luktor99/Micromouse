@@ -13,6 +13,7 @@
 #include <trajectory.h>
 
 TrajectoryCtrl Trajectory;
+float dist_accuracy = dist_accuracy_scan;
 
 void *malloc(size_t size);
 void free(void *ptr);
@@ -189,17 +190,21 @@ void TrajectoryCtrl::tick() {
 						* ((float) PfX - 1000.0 * Motion.posX)
 						+ ((float) PfY - 1000.0 * Motion.posY)
 								* ((float) PfY - 1000.0 * Motion.posY));
-		if (speed2 > 3) {
-			if (distanceToTarget >= 1.5 * CELL_FULL)
-				velLin = Motion.velLinMax;
-			else
-				velLin = speed_curve_fastrun;
-		} else {
-			if (distanceToTarget >= 0.5 * speed2 * CELL_FULL)
-				velLin = Motion.velLinMax;
-			else
-				velLin = speed_curve_fastrun;
-		}
+//		if (speed2 > 3) {
+//			if (distanceToTarget >= 1.8 * CELL_FULL)
+//				velLin = Motion.velLinMax;
+//			else
+//				velLin = speed_curve_fastrun;
+//		} else {
+//			if (distanceToTarget >= 0.5 * speed2 * CELL_FULL)
+//				velLin = Motion.velLinMax;
+//			else
+//				velLin = speed_curve_fastrun;
+//		}
+		if(Motion.velLin*Motion.velLin*1000.0/(2.0*Motion.acc)<distanceToTarget)
+			velLin = Motion.velLinMax;
+		else
+			velLin = speed_curve_fastrun;
 
 	} else if (type == CURVE_SEARCHRUN) {
 		velLin = Motion.velLinMax;
@@ -216,12 +221,13 @@ void TrajectoryCtrl::tick() {
 void TrajectoryCtrl::addFastMove(uint8_t move) {
 
 	//debug printing
-	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
-		print("FF %d\r\n ", move);
-	else if (move == MF_LEFT)
-		print("FL %d\r\n", move);
-	else if (move == MF_RIGHT)
-		print("FR %d \r\n", move);
+//	if ((move >= MF_FORWARD) && (move <= MF_FORWARD + 13))
+//		print("FF %d\r\n ", move);
+//	else if (move == MF_LEFT)
+//		print("FL %d\r\n", move);
+//	else if (move == MF_RIGHT)
+//		print("FR %d \r\n", move);
+
 	//points defining bezier curve
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 
@@ -610,18 +616,18 @@ void TrajectoryCtrl::addFastMove(uint8_t move) {
 
 void TrajectoryCtrl::addSearchMove(uint8_t move) {
 	// debug printing:
-	if (move == MS_FORWARD)
-		print("F ");
-	else if (move == MS_LEFT)
-		print("L ");
-	else if (move == MS_RIGHT)
-		print("R ");
-	else if (move == MS_BACK)
-		print("B ");
-	else if (move == MS_BACKLEFT)
-		print("BL ");
-	else if (move == MS_BACKRIGHT)
-		print("BR ");
+//	if (move == MS_FORWARD)
+//		print("F ");
+//	else if (move == MS_LEFT)
+//		print("L ");
+//	else if (move == MS_RIGHT)
+//		print("R ");
+//	else if (move == MS_BACK)
+//		print("B ");
+//	else if (move == MS_BACKLEFT)
+//		print("BL ");
+//	else if (move == MS_BACKRIGHT)
+//		print("BR ");
 
 	uint16_t P1X, P1Y, D1X, D1Y, P2X, P2Y, D2X, D2Y;
 

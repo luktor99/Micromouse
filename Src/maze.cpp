@@ -179,12 +179,12 @@ uint8_t Maze::nextscanstep(void)
 		{
 			maze_reinit();
 			//nale¿y wykonaæ kolejny przejazd skanuj¹cy
-			print("RETRY\r\n");
+			//print("RETRY\r\n");
 			return MAZE_RESCAN;
 		}
 		else{
 			//ca³a droga znana -> mo¿na wykonywaæ przejazd na czas
-			print("FASTRUN\r\n");
+			//print("FASTRUN\r\n");
 			return MAZE_FASTRUN;
 		}
 
@@ -554,7 +554,7 @@ void Maze::szybko() { // bez skosow
 	uint8_t y;
 
 	Trajectory.addFastMove(M_START);
-	print("ruch start\r\n");
+	//print("ruch start\r\n");
 
 	for (x = 0; x<100; x++){
 		if (sciezka[x] == MS_FORWARD){
@@ -569,20 +569,20 @@ void Maze::szybko() { // bez skosow
 				}
 			}
 			Trajectory.addFastMove(MF_FORWARD + dlpr - 1);
-			print("ruch prosto o %u \r\n", dlpr);
+			//print("ruch prosto o %u \r\n", dlpr);
 			dlpr = 0;
 		}
 		else if (sciezka[x] == MS_LEFT){
 			Trajectory.addFastMove(MF_LEFT);
-			print("w lewo\r\n");
+			//print("w lewo\r\n");
 		}
 		else if (sciezka[x] == MS_RIGHT) {
 			Trajectory.addFastMove(MF_RIGHT);
-			print("w prawo\r\n");
+			//print("w prawo\r\n");
 		}
 		else{
 			Trajectory.addFastMove(M_FINISH);
-			print("ruch stop\r\n");
+			//print("ruch stop\r\n");
 			return;
 		}
 	}

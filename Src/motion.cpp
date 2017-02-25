@@ -23,9 +23,9 @@ void MotionCtrl::init(void) {
 	velR=0.0;
 	dirL=0;
 	dirR=0;
-	velLin=0.0;
-	velRot=0.0;
-	acc=def_acc*0.001;
+	velLin=0.0f;
+	velRot=0.0f;
+	acc=def_acc*0.000001f;
 	enabled=0;
 
 	// Center encoders' values
@@ -58,6 +58,7 @@ void MotionCtrl::init(void) {
 }
 
 void MotionCtrl::enable(void) {
+	velLin=0.0f;
 	enabled=1;
 }
 
@@ -157,8 +158,8 @@ void MotionCtrl::tick(void) {
 			sumR=-iValMax;
 
 		// Calculate motor outputs as PID regulator output + feed-forward values - gyro feedback
-		pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + velLff - dGyro*100000.0;
-		pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + velRff + dGyro*100000.0; // TODO: provide a better PID disable (motors off) condition when vel=0
+		pwmL = kP*errL + kI*sumL + kD*(errL-errLlast) + 0.0001*velLff*velLff + 1.0*velLff + dGyro*100000.0;
+		pwmR = kP*errR + kI*sumR + kD*(errR-errRlast) + 0.0001*velRff*velRff + 1.0*velRff - dGyro*100000.0; // TODO: provide a better PID disable (motors off) condition when vel=0
 		// Direct regulator outputs to motors
 		setL((int32_t)pwmL*840.0/adc_lipo[0]);
 		setR((int32_t)pwmR*840.0/adc_lipo[0]);
@@ -326,12 +327,16 @@ void MotionCtrl::setVelLin(float v) {
 	float velLinSet=v*0.001;
 	// acceleration limitation
 	float velLdiff=velLinSet-velLin;
-	if(velLdiff>=acc)
+	if(velLdiff>=acc) {
 		velLin+=acc;
-	else if(velLdiff<=-acc)
+		LED5_GPIO_Port->BSRR = LED5_Pin << 16U;
+	} else if(velLdiff<=-acc) {
 		velLin-=acc;
-	else
+		LED5_GPIO_Port->BSRR = LED5_Pin;
+	} else {
 		velLin=velLinSet;
+		LED5_GPIO_Port->BSRR = LED5_Pin << 16U;
+	}
 
 	// update wheels' rotational velocities
 	float velLnew=(velLin-0.5*wheel_dist*velRot)/vel_coeff/wheel_radius;
