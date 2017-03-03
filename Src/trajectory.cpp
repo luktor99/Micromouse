@@ -139,7 +139,8 @@ void TrajectoryCtrl::tick() {
 
 	// Current target captured, set the next one if available
 	if (dist < dist_accuracy) {
-		step += 0.01; // increment the step variable
+		if(Motion.velLin > 0.0f) // Makes sure the robot doesn't execute the trajectory while braking
+			step += 0.01; // increment the step variabl
 
 		// check if we've just finished the current curve
 		if (step >= 1.0) {

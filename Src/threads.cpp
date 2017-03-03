@@ -901,31 +901,31 @@ void m_run(Menu *m, uint8_t parent) {
 				dist_accuracy = dist_accuracy_fast;
 			}
 			if (speed_dmps == 3) {
-				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s   L(-) R(+)");
 			} else if (speed_dmps == 4) {
-				u8g_DrawStr(&u8g, 0, 24, "0.4 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.4 m/s   L(-) R(+)");
 			} else if (speed_dmps == 5) {
-				u8g_DrawStr(&u8g, 0, 24, "0.5 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.5 m/s   L(-) R(+)");
 			} else if (speed_dmps == 6) {
-				u8g_DrawStr(&u8g, 0, 24, "0.6 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.6 m/s   L(-) R(+)");
 			} else if (speed_dmps == 7) {
-				u8g_DrawStr(&u8g, 0, 24, "0.7 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.7 m/s   L(-) R(+)");
 			} else if (speed_dmps == 8) {
-				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s   L(-) R(+)");
 			} else if (speed_dmps == 9) {
-				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s   L(-) R(+)");
 			} else if (speed_dmps == 10) {
-				u8g_DrawStr(&u8g, 0, 24, "1.0 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "1.0 m/s   L(-) R(+)");
 			} else if (speed_dmps == 11) {
-				u8g_DrawStr(&u8g, 0, 24, "1.1 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "1.1 m/s   L(-) R(+)");
 			} else if (speed_dmps == 12) {
-				u8g_DrawStr(&u8g, 0, 24, "1.2 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "1.2 m/s   L(-) R(+)");
 			} else if (speed_dmps == 13) {
-				u8g_DrawStr(&u8g, 0, 24, "1.3 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "1.3 m/s   L(-) R(+)");
 			} else if (speed_dmps == 14) {
-				u8g_DrawStr(&u8g, 0, 24, "1.4 m/s   L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, "1.4 m/s   L(-) R(+)");
 			} else {
-				u8g_DrawStr(&u8g, 0, 24, ">1.4 m/s  L(-) R{+)");
+				u8g_DrawStr(&u8g, 0, 24, ">1.4 m/s  L(-) R(+)");
 			}
 
 			u8g_DrawStr(&u8g, 0, 38, "Press DOWN to start.");
