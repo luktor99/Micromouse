@@ -202,7 +202,7 @@ void TrajectoryCtrl::tick() {
 //			else
 //				velLin = speed_curve_fastrun;
 //		}
-		if(Motion.velLin*Motion.velLin*1000.0/(2.0*Motion.acc)<distanceToTarget)
+		if((Motion.velLin*Motion.velLin*1000000.0-speed_curve_fastrun*speed_curve_fastrun)/(2000.0*Motion.acc)<distanceToTarget)
 			velLin = Motion.velLinMax;
 		else
 			velLin = speed_curve_fastrun;

@@ -67,7 +67,7 @@ const float r_FR = 38.75; // mm
 [RIGHT]Dist: 0.083677
  */
 const float ang_calib[4]={-0.031592, -0.073596, 0.164456, -0.139795};
-const float dist_calib[4]={0.087272-0.085, 0.086655-0.085, 0.093283-0.085, 0.083677-0.085}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
+const float dist_calib[4]={0.087272-0.095, 0.086655-0.095, 0.093283-0.095, 0.083677-0.095}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
 
 
 // possible global orientations of the robot
