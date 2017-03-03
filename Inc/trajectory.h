@@ -13,9 +13,9 @@
 
 // Trajectory follow constants
 const float velLinMin=0.0; // Min linear velocity (to prevent the robot from going backwards in certain conditions)
-const float velRotMax=300.0; // Max rotational velocity
+const float velRotMax=60.0; // Max rotational velocity
 const float dist_accuracy_scan=0.020; // accuracy of position following (20mm)
-const float dist_accuracy_fast=0.080; // accuracy of position following (20mm)
+const float dist_accuracy_fast=0.07; // accuracy of position following (20mm)
 extern float dist_accuracy;
 
 // shape coefficients of the bezier curve trajectories:

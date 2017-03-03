@@ -494,7 +494,7 @@ void StartLiPoMonitorTask(void const * argument) {
 void StartMazeAlgorithmTask(void const * argument) {
 	//  the default (search run) speed
 	Motion.velLinMax = speed_searchrun;
-	speed_dmps = 3;
+	speed_dmps = 4;
 
 	/*debugging fast fast moves functions*/
 //	Motion.velLinMax = 1;
@@ -556,7 +556,7 @@ void StartMazeAlgorithmTask(void const * argument) {
 	 scanning_step=1;
 	 // Set fast run speed
 	 Motion.velLinMax=speed_fastrun;
-	 speed_dmps=4;
+	 speed_dmps=8;
 	 // SCANNING DONE - BEEP
 	 for(uint8_t i=0; i<20; i++) {
 		 osDelay(50);

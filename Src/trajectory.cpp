@@ -173,7 +173,7 @@ void TrajectoryCtrl::tick() {
 	}
 
 	// Calculate and apply rotational velocity
-	float velRot = errHeading * 10.0
+	float velRot = errHeading * 14.0//10.0
 			* (!must_stop || (must_stop && Motion.velLin < 0.01 * 0.001)); // if turning in place: first wait for the robot to stop, then rotate
 	Motion.setVelRot(
 			((velRot < velRotMax) ?
