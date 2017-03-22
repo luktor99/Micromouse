@@ -11,9 +11,9 @@
 #include <stdint.h>
 
 // Robot speed settings (m/s)
-const float speed_searchrun=0.3; // search run speed
-const float speed_fastrun=0.4; // first search run speed
-const float speed_curve_fastrun=0.4;
+const float speed_searchrun=0.4; // search run speed
+const float speed_fastrun=0.8; // first search run speed
+const float speed_curve_fastrun=0.6;
 const float speed_fastrun_step=0.1; // speed increment after each speed run
 
 // Robot dimensions
@@ -24,7 +24,7 @@ const float vel_coeff=0.00178499583; // 2pi/encoder_ticks_per_revolution = 2pi/3
 
 // Speed & Acc
 //const float def_vmax=10.0;
-const float def_acc=0.001; // in m/s^2, 0.001 is fine
+const float def_acc=1.5; // in m/s^2, 1.1 is fine
 
 // PID settings
 const float def_kP=350.0; //350.0;
@@ -39,8 +39,8 @@ const uint8_t speed_avg_count = 20;
 const uint16_t gyro_avg_count = 1000; // 1s
 
 // Localisation correction coefficients
-const float coeff_heading = 0.001; // 0.002
-const float coeff_pos = 0.003; // 0.005
+const float coeff_heading = 0.0001; // 0.001
+const float coeff_pos = 0.012; // 0.012
 
 // Wall detection threshold for front and side wall sensors
 const uint8_t wall_thresh_front = 187; // 18.7mm
@@ -67,7 +67,7 @@ const float r_FR = 38.75; // mm
 [RIGHT]Dist: 0.083677
  */
 const float ang_calib[4]={-0.031592, -0.073596, 0.164456, -0.139795};
-const float dist_calib[4]={0.087272-0.085, 0.086655-0.085, 0.093283-0.085, 0.083677-0.085}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
+const float dist_calib[4]={0.087272-0.095, 0.086655-0.095, 0.093283-0.095, 0.083677-0.095}; // TODO: change 0.09 to a smaller value that includes wall's thicknesss
 
 
 // possible global orientations of the robot

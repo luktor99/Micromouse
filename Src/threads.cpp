@@ -46,37 +46,31 @@ void MX_I2C2_Init(void);
 
 void createThreads(void) {
 	// DEBUG
-	osThreadDef(defaultTask, StartDefaultTask, osPriorityAboveNormal, 0, 2560);
+	osThreadDef(defaultTask, StartDefaultTask, osPriorityAboveNormal, 0, 128); // 2560
 	defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 	// Buttons polling task
-	osThreadDef(buttonsPollingTask, StartButtonsPollingTask, osPriorityLow, 0,
-			128);
-	buttonsPollingTaskHandle = osThreadCreate(osThread(buttonsPollingTask),
-			NULL);
+	osThreadDef(buttonsPollingTask, StartButtonsPollingTask, osPriorityLow, 0, 128);
+	buttonsPollingTaskHandle = osThreadCreate(osThread(buttonsPollingTask),	NULL);
 	// Motors control task
-	osThreadDef(motionControlTask, StartMotionControlTask, osPriorityRealtime,
-			0, 2560);
+	osThreadDef(motionControlTask, StartMotionControlTask, osPriorityRealtime, 0, 512); // 2560
 	motionControlTaskHandle = osThreadCreate(osThread(motionControlTask), NULL);
 	// Range sensors reading task
-	osThreadDef(rangeSensorsTask, StartRangeSensorsTask, osPriorityRealtime, 0,
-			1280);
+	osThreadDef(rangeSensorsTask, StartRangeSensorsTask, osPriorityRealtime, 0,	256); // 1280
 	rangeSensorsTaskHandle = osThreadCreate(osThread(rangeSensorsTask), NULL);
 	// Command line interface task
-	osThreadDef(cliTask, StartCLITask, osPriorityRealtime, 0, 2560); // normally PriorityNormal, realtime for debugging
+	osThreadDef(cliTask, StartCLITask, osPriorityNormal, 0, 512); // 2560 normally PriorityNormal, realtime for debugging
 	cliTaskHandle = osThreadCreate(osThread(cliTask), NULL);
 	// Activity LEDs task
 	osThreadDef(activityLEDsTask, StartActivityLEDsTask, osPriorityLow, 0, 128);
 	activityLEDsTaskHandle = osThreadCreate(osThread(activityLEDsTask), NULL);
 	// OLED screen interface task
-	osThreadDef(OLEDTask, StartOLEDTask, osPriorityBelowNormal, 0, 2560);
+	osThreadDef(OLEDTask, StartOLEDTask, osPriorityBelowNormal, 0, 256); // 2560
 	OLEDTaskHandle = osThreadCreate(osThread(OLEDTask), NULL);
 	// LiPo voltage monitor task
-	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0,
-			128);
+	osThreadDef(LiPoMonitorTask, StartLiPoMonitorTask, osPriorityNormal, 0,	128);
 	LiPoMonitorTaskHandle = osThreadCreate(osThread(LiPoMonitorTask), NULL);
 	// Maze algorithm task
-	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0,
-			8192); //5120
+	osThreadDef(MazeAlgorithmTask, StartMazeAlgorithmTask, osPriorityHigh, 0, 8192); // 8192
 	MazeAlgorithmTaskHandle = osThreadCreate(osThread(MazeAlgorithmTask), NULL);
 }
 
@@ -220,6 +214,8 @@ void StartMotionControlTask(void const * argument) {
 
 		Trajectory.tick(); //
 		Motion.tick(); // Reads gyro, performs motor PID and localisation update
+
+		//print("%d\n\r", (int)(Motion.velLin*1000000));
 
 		uint16_t tick_length = TIMER - timer; // used to check if this loop takes more than 1ms (failure)
 		if (tick_length > 500)
@@ -498,7 +494,7 @@ void StartLiPoMonitorTask(void const * argument) {
 void StartMazeAlgorithmTask(void const * argument) {
 	//  the default (search run) speed
 	Motion.velLinMax = speed_searchrun;
-	speed_dmps = 3;
+	speed_dmps = 4;
 
 	/*debugging fast fast moves functions*/
 //	Motion.velLinMax = 1;
@@ -521,71 +517,70 @@ void StartMazeAlgorithmTask(void const * argument) {
 	// SEARCH RUNS LOOP
 	bool fastrun = false;
 	for(;;) {
-	 // Go to the first border, to initiate the first scan
-	 Motion.resetLocalisation();
-	 Trajectory.reset();
-	 Trajectory.addSearchMove(M_START);
-	 // Set the first target point
-	 Trajectory.loadCurve();
-	 Trajectory.updateTarget(0.0);
+		// Go to the first border, to initiate the first scan
+		Motion.resetLocalisation();
+		Trajectory.reset();
+		Trajectory.addSearchMove(M_START);
+		// Set the first target point
+		Trajectory.loadCurve();
+		Trajectory.updateTarget(0.0);
 
-	 for(;;) {
-	 // wait for a scan signal
-	 osSignalWait(SIGNAL_SCAN, osWaitForever);
-	 // enable buzzer
-	 //BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-	 // DEBUG: print wall info
-	 //print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
-	 uint8_t result=maze.nextscanstep();
-	 if(result != MAZE_STEP) {
-	 if(result == MAZE_FASTRUN){
-	 fastrun=true;
-	 }
-	 // wait for the last command to be executed
-	 osSignalWait(SIGNAL_SCAN, osWaitForever);
-	 // stop motors
-	 Motion.disable();
-	 // disable buzzer
-	 //BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
-	 break;
-	 }
-	 osDelay(2);
-	 // disable buzzer
-	 BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
-	 }
-	 if(fastrun) break;
-	 }
+		for(;;) {
+			// wait for a scan signal
+			osSignalWait(SIGNAL_SCAN, osWaitForever);
+			// enable buzzer
+			//BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+			// DEBUG: print wall info
+			//print("\r\nS%u%u%u -> ", Motion.wallState[LEFT], Motion.wallState[FRONT], Motion.wallState[RIGHT]);
+			uint8_t result=maze.nextscanstep();
+			if(result != MAZE_STEP) {
+				if(result == MAZE_FASTRUN) {
+					fastrun=true;
+				}
+				// wait for the last command to be executed
+				osSignalWait(SIGNAL_SCAN, osWaitForever);
+				// stop motors
+				Motion.disable();
+				// disable buzzer
+				//BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+				break;
+			}
+			//osDelay(2);
+			// disable buzzer
+			//BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+		}
+		if(fastrun) break;
+	}
 
 	 // Update the OLED text
 	 scanning_step=1;
 	 // Set fast run speed
 	 Motion.velLinMax=speed_fastrun;
-	 speed_dmps=4;
+	 speed_dmps=8;
 	 // SCANNING DONE - BEEP
 	 for(uint8_t i=0; i<20; i++) {
-	 osDelay(50);
-	 BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
-	 osDelay(50);
-	 BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
+		 osDelay(50);
+		 BUZZER_GPIO_Port->BSRR = BUZZER_Pin;
+		 osDelay(50);
+		 BUZZER_GPIO_Port->BSRR = BUZZER_Pin << 16;
 	 }
 
 	 // FAST RUNS LOOP
 	 for(;;) {
-	 // Go to the first border, to initiate the first scan
-	 Motion.resetLocalisation();
-	 Trajectory.reset();
+		 // Go to the first border, to initiate the first scan
+		 Motion.resetLocalisation();
+		 Trajectory.reset();
 
-	 // Calculate fast run path
-	 maze.szybko();
+		 // Calculate fast run path
+		 maze.szybko();
 
-	 // Set the first target point
-	 Trajectory.loadCurve();
-	 Trajectory.updateTarget(0.0);
+		 // Set the first target point
+		 Trajectory.loadCurve();
+		 Trajectory.updateTarget(0.0);
 
-	 osSignalWait(SIGNAL_SCAN, osWaitForever);
-	 Motion.disable();
+		 osSignalWait(SIGNAL_SCAN, osWaitForever);
+		 Motion.disable();
 	 }
-
 }
 
 // OLED screen "apps" below
@@ -894,8 +889,6 @@ void m_walls(Menu *m, uint8_t parent) {
 }
 
 void m_run(Menu *m, uint8_t parent) {
-	static char buffer[8];
-
 	for (;;) {
 		u8g_SetDefaultForegroundColor(&u8g);
 		u8g_FirstPage(&u8g);
@@ -903,28 +896,40 @@ void m_run(Menu *m, uint8_t parent) {
 			draw_statusbar();
 			if (scanning_step == 0)
 				u8g_DrawStr(&u8g, 0, 12, "*** SEARCH RUN ***");
-			else if (scanning_step == 1)
+			else if (scanning_step == 1) {
 				u8g_DrawStr(&u8g, 0, 12, "**** FAST RUN ****");
+				dist_accuracy = dist_accuracy_fast;
+			}
 			if (speed_dmps == 3) {
-				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.3 m/s   L(-) R(+)");
 			} else if (speed_dmps == 4) {
-				u8g_DrawStr(&u8g, 0, 24, "0.4 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.4 m/s   L(-) R(+)");
 			} else if (speed_dmps == 5) {
-				u8g_DrawStr(&u8g, 0, 24, "0.5 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.5 m/s   L(-) R(+)");
 			} else if (speed_dmps == 6) {
-				u8g_DrawStr(&u8g, 0, 24, "0.6 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.6 m/s   L(-) R(+)");
 			} else if (speed_dmps == 7) {
-				u8g_DrawStr(&u8g, 0, 24, "0.7 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.7 m/s   L(-) R(+)");
 			} else if (speed_dmps == 8) {
-				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.8 m/s   L(-) R(+)");
 			} else if (speed_dmps == 9) {
-				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s");
+				u8g_DrawStr(&u8g, 0, 24, "0.9 m/s   L(-) R(+)");
+			} else if (speed_dmps == 10) {
+				u8g_DrawStr(&u8g, 0, 24, "1.0 m/s   L(-) R(+)");
+			} else if (speed_dmps == 11) {
+				u8g_DrawStr(&u8g, 0, 24, "1.1 m/s   L(-) R(+)");
+			} else if (speed_dmps == 12) {
+				u8g_DrawStr(&u8g, 0, 24, "1.2 m/s   L(-) R(+)");
+			} else if (speed_dmps == 13) {
+				u8g_DrawStr(&u8g, 0, 24, "1.3 m/s   L(-) R(+)");
+			} else if (speed_dmps == 14) {
+				u8g_DrawStr(&u8g, 0, 24, "1.4 m/s   L(-) R(+)");
 			} else {
-				u8g_DrawStr(&u8g, 0, 24, ">=1.0 m/s");
+				u8g_DrawStr(&u8g, 0, 24, ">1.4 m/s  L(-) R(+)");
 			}
 
 			u8g_DrawStr(&u8g, 0, 38, "Press DOWN to start.");
-			u8g_DrawStr(&u8g, 0, 48, "Speed: L(-) R{+)");
+			u8g_DrawStr(&u8g, 0, 48, "Press UP to restore.");
 		} while (u8g_NextPage(&u8g));
 
 		// check is button has been pressed
@@ -937,6 +942,11 @@ void m_run(Menu *m, uint8_t parent) {
 			else if (key == B_DOWN) {
 				// run
 				osDelay(1500);
+
+				// Backup the current maze state
+				//if(scanning_step == 0)
+					//maze.backup();
+
 				Motion.calib();
 				Motion.resetLocalisation();
 				Motion.enable();
@@ -946,6 +956,9 @@ void m_run(Menu *m, uint8_t parent) {
 				Motion.disable();
 				// Remove the rest of the trajectory
 				Trajectory.clear();
+				// Restore the maze data if the search run has failed
+				//if(scanning_step == 0)
+					//maze.restore();
 				// Force the algorithm to start a fresh fast run
 				osSignalSet(MazeAlgorithmTaskHandle, SIGNAL_SCAN);
 			} else if (key == B_RIGHT) {
@@ -963,8 +976,7 @@ void m_run(Menu *m, uint8_t parent) {
 }
 
 extern "C" {
-void vApplicationStackOverflowHook(TaskHandle_t xTask,
-		signed char *pcTaskName) {
+void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName) {
 	print("STACK!");
 	//vTaskDelete(xTask);
 }
